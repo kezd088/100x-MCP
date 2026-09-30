@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$Source = 'kezd088/100x-mcp', [switch]$Connect)
+param([string]$Source = 'kezd088/100x-MCP', [switch]$Connect)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 

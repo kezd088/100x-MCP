@@ -17,7 +17,7 @@
 在 Codex Desktop 任意任务中发送以下指令：
 
 ```text
-请阅读 https://github.com/kezd088/100x-mcp/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
+请阅读 https://github.com/kezd088/100x-MCP/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
 ```
 
 ### 备选：一键脚本安装
@@ -25,20 +25,20 @@
 **Windows PowerShell**（打开网页登录授权，凭据由 Windows DPAPI 本地加密保存）：
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-mcp/main/install.ps1))) -Connect
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1))) -Connect
 ```
 
 **macOS 终端**（同一套网页授权，凭据存入当前用户的 macOS 钥匙串）：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kezd088/100x-mcp/main/install.sh | bash -s -- --connect
+curl -fsSL https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.sh | bash -s -- --connect
 ```
 
 <details>
 <summary>原生 CLI 插件命令与本地开发测试</summary>
 
 ```powershell
-codex plugin marketplace add kezd088/100x-mcp --json
+codex plugin marketplace add kezd088/100x-MCP --json
 codex plugin add 100x@100x --json
 
 # 本地开发测试可指定源码目录：

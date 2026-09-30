@@ -3,7 +3,7 @@
 # 不安装全局软件、不改其他插件或模型配置、不启动 CLI 会话。
 set -euo pipefail
 
-SOURCE='kezd088/100x-mcp'
+SOURCE='kezd088/100x-MCP'
 CONNECT=0
 
 fail() { printf '%s\n' "$1" >&2; exit 1; }

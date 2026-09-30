@@ -25,7 +25,7 @@
 在 Codex Desktop 中打开任意任务对话框，复制并发送以下自然语言指令：
 
 ```text
-请阅读 https://github.com/kezd088/100x-mcp/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
+请阅读 https://github.com/kezd088/100x-MCP/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
 ```
 
 Codex 会自动读取安装规范并在后台完成初始化配置。
@@ -35,13 +35,13 @@ Codex 会自动读取安装规范并在后台完成初始化配置。
 Windows PowerShell，运行以下单行命令：
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-mcp/main/install.ps1))) -Connect
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1))) -Connect
 ```
 
 macOS 终端，运行以下单行命令：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kezd088/100x-mcp/main/install.sh | bash -s -- --connect
+curl -fsSL https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.sh | bash -s -- --connect
 ```
 
 - **`-Connect` / `--connect` 选项**：打开 100x 授权页面，核对连接码并允许后自动加密保存——Windows 走 **DPAPI** 存到 `%LOCALAPPDATA%/100x/connection.json`，macOS 走 **钥匙串**（服务名 `100x-codex`）、配置文件 `~/Library/Application Support/100x/connection.json` 里只留条目引用。凭据不会出现在终端或对话中。
@@ -57,7 +57,7 @@ curl -fsSL https://raw.githubusercontent.com/kezd088/100x-mcp/main/install.sh | 
 
 ```powershell
 # 1. 注册 100x 市场源
-codex plugin marketplace add kezd088/100x-mcp --json
+codex plugin marketplace add kezd088/100x-MCP --json
 
 # 2. 安装 100x 插件包（含 MCP 与 SKILL）
 codex plugin add 100x@100x --json
