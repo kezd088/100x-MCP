@@ -1,11 +1,10 @@
 [
   {
     "name": "100x_list_models",
-    "description": "列出 100x 可用型号、模式、分辨率和时长。以实时目录为准，不生成、不扣积分。",
+    "description": "列出 100x 图片与视频型号、可用方式和规格。带 lines 的型号可选线路，default 为默认线路；带 billing 的线路按 lines 顺序回落，billing 为 pool 或 paid（付费线路）。价格请使用报价工具。",
     "inputSchema": {
       "type": "object",
       "properties": {},
-      "required": [],
       "additionalProperties": false
     },
     "annotations": {
@@ -17,7 +16,7 @@
   },
   {
     "name": "100x_quote",
-    "description": "取得当前账户准确积分报价，有效 15 分钟；不提交生成。",
+    "description": "按所选型号、提示词与素材计算当前 100x 积分报价，不提交生成。line 仅用于带 lines 的型号；填了只走该线路。不填时 Omni、MiniMax、Seedance 按 lines 顺序找第一条可用线路，返回的 line、billing、fallback 标明实际线路和是否回落；其他型号走默认线路。参考素材份数以所选线路为准。返回报价编号，有效 15 分钟。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -50,7 +49,7 @@
         },
         "duration_seconds": {
           "type": "integer",
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "maximum": 120
         },
         "quality": {
@@ -69,8 +68,17 @@
             "type": "string",
             "pattern": "^100x_[a-z]+_[a-f0-9]{32}$"
           },
-          "maxItems": 16,
+          "maxItems": 64,
           "default": []
+        },
+        "line": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "pool",
+            "economy",
+            "alternate"
+          ]
         }
       },
       "required": [
@@ -122,7 +130,7 @@
   },
   {
     "name": "100x_generate_video",
-    "description": "提交已报价的视频，遵守 max_credits。立即返回任务；同一意图重试必须复用 quote_id 与 idempotency_key。",
+    "description": "提交已报价的一段视频；立即返回任务号，视频在后台生成。Omni、MiniMax、Seedance 的 max_credits 可不填，填了报价超出即拦；其他型号必填，最多 10000。相同意图复用 idempotency_key。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -136,14 +144,12 @@
         },
         "max_credits": {
           "type": "number",
-          "minimum": 0,
-          "maximum": 10000
+          "minimum": 0
         }
       },
       "required": [
         "quote_id",
-        "idempotency_key",
-        "max_credits"
+        "idempotency_key"
       ],
       "additionalProperties": false
     },
@@ -216,6 +222,88 @@
       "required": [
         "content_base64",
         "mime_type"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "100x_push_storyboard",
+    "description": "把写好的分镜按原稿建进 100x 生成台：每镜以「镜头 01｜00:00–00:15｜场景」或「镜头 1 (15秒) | 剧情: …」这类标题开头，镜头数、时长、台词和逐秒动作照原稿，不重新拆镜、不生成、不扣积分。references 用 100x_upload_asset 返回的图片编号，name 和 aliases 就是提示词里 @ 的名字；不填 shots 的挂到整个方案（最多 4 张），填了 shots（从 1 数）只挂到那几镜。不填 project_id 新建工程，填了就在该工程里加一个脚本。返回工程链接、镜头数和解析提示。重试用同一个 idempotency_key，不会重复建镜头。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "storyboard": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100000
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "project_id": {
+          "type": "string",
+          "pattern": "^wsd_[A-Za-z0-9_-]{16,56}$"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^100x_[a-z]+_[a-f0-9]{32}$"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "maxItems": 8,
+                "default": []
+              },
+              "shots": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 5000
+                },
+                "minItems": 1,
+                "maxItems": 5000
+              }
+            },
+            "required": [
+              "asset_id",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 40,
+          "default": []
+        },
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,120}$"
+        }
+      },
+      "required": [
+        "storyboard",
+        "idempotency_key"
       ],
       "additionalProperties": false
     },
