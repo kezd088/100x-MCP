@@ -5,7 +5,8 @@
     "inputSchema": {
       "type": "object",
       "properties": {},
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": true,
@@ -85,7 +86,8 @@
         "model",
         "prompt"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": true,
@@ -96,7 +98,7 @@
   },
   {
     "name": "100x_generate_image",
-    "description": "提交已报价的单张图片，遵守 max_credits。立即返回任务；同一意图重试必须复用 quote_id 与 idempotency_key。",
+    "description": "提交已报价的单张图片；按 max_credits 控制预算。立即返回任务号。相同意图必须复用 idempotency_key，避免重复生成。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -119,7 +121,8 @@
         "idempotency_key",
         "max_credits"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -151,7 +154,8 @@
         "quote_id",
         "idempotency_key"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -162,7 +166,7 @@
   },
   {
     "name": "100x_get_task",
-    "description": "查询本人任务和 100x 结果链接，按照 poll_after_ms 查询，完成后停止。",
+    "description": "查询本人任务状态、实际积分与 100x 下载链接。按 poll_after_ms 间隔查询；完成后停止轮询。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -174,7 +178,8 @@
       "required": [
         "task_id"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": true,
@@ -185,12 +190,12 @@
   },
   {
     "name": "100x_get_balance",
-    "description": "查询当前 100x 账户可用与预留积分，不扣费。",
+    "description": "查询当前 100x 账户的可用和预留积分。",
     "inputSchema": {
       "type": "object",
       "properties": {},
-      "required": [],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": true,
@@ -201,7 +206,7 @@
   },
   {
     "name": "100x_upload_asset",
-    "description": "上传参考素材获得 100x 素材编号；最大 20 MB，本地文件优先用包内 media.mjs，避免对话传输 base64。",
+    "description": "上传参考图片、音频或视频，返回用于报价的 100x 素材编号。最大 20 MB；本地文件建议用随包 CLI 上传，避免把大量 base64 放入对话。",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -223,7 +228,81 @@
         "content_base64",
         "mime_type"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "100x_report_production",
+    "description": "自愿回传外部执行任务的状态和日志。仅接受通过本连接上传的 100x_asset 结果。平台仅展示回传内容，不核验外部执行或计费；同一事件重试须保持内容一致。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "external_job_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_.:-]{1,120}$"
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_.:-]{1,120}$"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "queued",
+            "polling",
+            "succeeded",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "event_kind": {
+          "type": "string",
+          "enum": [
+            "created",
+            "progress",
+            "completed",
+            "failed",
+            "cancelled",
+            "message"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^100x_asset_[a-f0-9]{32}$"
+          },
+          "maxItems": 32,
+          "default": []
+        }
+      },
+      "required": [
+        "external_job_id",
+        "event_id",
+        "sequence",
+        "status",
+        "event_kind",
+        "message"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": false,
@@ -305,7 +384,8 @@
         "storyboard",
         "idempotency_key"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "annotations": {
       "readOnlyHint": false,
