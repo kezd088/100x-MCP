@@ -155,7 +155,10 @@ test('DPAPI scripts roundtrip under ConstrainedLanguage', { skip: !powershell &&
   assert.equal((sealed.stdout + sealed.stderr + opened.stderr).includes(token), false);
 });
 
-test('connections saved by 0.3.3 still open, also under ConstrainedLanguage', { skip: process.platform !== 'win32' }, async () => {
+// 系统策略把整台机器锁在受限模式时，0.3.3 的原脚本自己就跑不起来，那项跳过。
+const systemMode = process.platform === 'win32' ? lastLine((await ps('$ExecutionContext.SessionState.LanguageMode', '')).stdout) : '';
+
+test('connections saved by 0.3.3 still open, also under ConstrainedLanguage', { skip: process.platform !== 'win32' ? true : systemMode !== 'FullLanguage' && '系统处在受限模式，造不出 0.3.3 的密文' }, async () => {
   // 0.3.3 的加密脚本原样：普通模式下产出的密文，新版不用重连就能读。
   const legacy = "$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); [Console]::InputEncoding=[Text.UTF8Encoding]::new($false); $v=[Console]::In.ReadToEnd(); $s=ConvertTo-SecureString $v -AsPlainText -Force; [Console]::Write((ConvertFrom-SecureString $s))";
   const sealed = await ps(legacy, token);
@@ -177,11 +180,12 @@ test('Windows saved connection is DPAPI-sealed and only the current user and SYS
   assert.equal(record.protection, 'windows-dpapi');
   assert.ok(record.token.toLowerCase().startsWith(DPAPI_HEADER));
   assert.equal(JSON.stringify(record).includes(token), false);
-  const acl = await ps("$a=Get-Acl -LiteralPath $env:ACL_PATH; [string]$a.AreAccessRulesProtected; $a.Access | ForEach-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value + ' ' + $_.IsInherited + ' ' + $_.FileSystemRights }", '', { ACL_PATH: configPath });
-  const [isProtected, ...rules] = acl.stdout.trim().split(/\r?\n/).map(line => line.trim());
-  assert.equal(isProtected, 'True', 'inheritance removed');
-  const me = /"(S-1-[0-9-]+)"/.exec(execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8' }))[1];
-  assert.deepEqual(rules.sort(), [me + ' False FullControl', 'S-1-5-18 False FullControl'].sort());
+  // 读 SDDL 字符串，受限模式下也放行：D:P 是不继承，每条 ACE 是「允许;无继承标记;FA 全部权限;;;SID」。
+  const sddl = lastLine((await ps('(Get-Acl -LiteralPath $env:ACL_PATH).Sddl', '', { ACL_PATH: configPath })).stdout);
+  const dacl = /D:([A-Z]*)((?:\([^)]*\))*)/.exec(sddl);
+  assert.ok(dacl && dacl[1].includes('P'), 'inheritance removed: ' + sddl);
+  const me = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8' }).match(/S-1-\d+(?:-\d+)+/g).pop();
+  assert.deepEqual(dacl[2].match(/\([^)]*\)/g).sort(), ['(A;;FA;;;' + me + ')', '(A;;FA;;;SY)'].sort());
 });
 
 test('media download from current 100x endpoint cannot overwrite files', async () => {

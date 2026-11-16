@@ -169,7 +169,7 @@ function execText(file, args) {
 let windowsUserSid;
 async function lockDownWindowsFile(path) {
   try {
-    windowsUserSid ||= /"(S-1-\d+(?:-\d+)+)"/.exec(await execText('whoami.exe', ['/user', '/fo', 'csv', '/nh']))?.[1];
+    windowsUserSid ||= (await execText('whoami.exe', ['/user', '/fo', 'csv', '/nh'])).match(/S-1-\d+(?:-\d+)+/g)?.pop();
     if (!windowsUserSid) throw new Error('no user sid');
     await execText('icacls.exe', [path, '/inheritance:r', '/grant:r', '*' + windowsUserSid + ':(F)', '*S-1-5-18:(F)', '/q']);
   } catch { throw new ConnectionError('100X_SAVE_FAILED', '无法保护本机凭据文件，请重试保存。'); }
