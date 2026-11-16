@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { validateEndpoint, readConnection, request } from '../plugins/100x/scripts/connection.mjs';
+import { validateEndpoint, readConnection, request, saveConnection, DPAPI_SCRIPTS, encodeCodeUnits, decodeCodeUnits } from '../plugins/100x/scripts/connection.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const plugin = resolve(root, 'plugins/100x');
@@ -110,13 +110,82 @@ test('redirects are never followed with credentials', async () => {
 test('Windows protected storage roundtrips without token in output or file', { skip: process.platform !== 'win32' }, async () => {
   const configPath = resolve(folder, 'connection.json');
   const url = 'http://127.0.0.1:4196/mcp';
-  const result = await run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', resolve(plugin, 'scripts/connect.ps1'), '-FromStdin'], { HUNDREDX_CONFIG_PATH: configPath }, JSON.stringify({ url, token }));
+  const connect = () => run(process.execPath, [resolve(plugin, 'scripts/connect-manual.mjs'), '--from-stdin'], { HUNDREDX_CONFIG_PATH: configPath, HUNDREDX_TOKEN: '' }, JSON.stringify({ url, token }));
+  const result = await connect();
   assert.equal(result.code, 0, result.stderr);
   assert.equal((result.stdout + result.stderr).includes(token), false);
   const text = await readFile(configPath, 'utf8'); assert.equal(text.includes(token), false);
   assert.deepEqual(await readConnection({ HUNDREDX_CONFIG_PATH: configPath }), { url, token });
-  const again = await run('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', resolve(plugin, 'scripts/connect.ps1'), '-FromStdin'], { HUNDREDX_CONFIG_PATH: configPath }, JSON.stringify({ url, token }));
-  assert.equal(again.code, 0, 'Reconnecting must preserve the existing file owner and support protected files');
+  assert.equal((await connect()).code, 0, 'Reconnecting must replace the locked-down file');
+});
+
+// 受限语言模式（AppLocker、WDAC）下起的 PowerShell 只放行 cmdlet 和核心类型。Windows 用 powershell.exe 实跑；
+// 别的系统装了 pwsh 也跑一遍（那里 SecureString 不加密，只验受限模式放不放行和码元往返）。
+const powershell = process.platform === 'win32' ? 'powershell.exe' : (() => {
+  try { execFileSync('pwsh', ['-NoProfile', '-Command', 'exit 0'], { stdio: 'ignore' }); return 'pwsh'; } catch { return null; }
+})();
+const constrained = "$ExecutionContext.SessionState.LanguageMode='ConstrainedLanguage'; ";
+const lastLine = text => text.trim().split(/\r?\n/).pop().trim();
+const ps = (script, input, env) => run(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], env, input);
+const DPAPI_HEADER = '01000000d08c9ddf0115d1118c7a00c04fc297eb';
+
+test('text crosses the PowerShell pipe as UTF-16 code units', () => {
+  for (const value of ['', token, '中文 é 😀', '\u0000,']) assert.equal(decodeCodeUnits(encodeCodeUnits(value)), value);
+  for (const bad of ['a', '1,,2', '65536', '1, 2', 'WARNING: x']) assert.throws(() => decodeCodeUnits(bad));
+});
+
+test('Windows PowerShell paths avoid what ConstrainedLanguage blocks', async () => {
+  const blocked = /\[(?:System\.)?(?:Console|Runtime\.|IO\.|Text\.|Security\.|Convert)\b|::new\(|Add-Type/;
+  for (const script of Object.values(DPAPI_SCRIPTS)) assert.doesNotMatch(script, blocked);
+  const installer = await readFile(resolve(root, 'install.ps1'), 'utf8');
+  for (const line of installer.split(/\r?\n/)) if (blocked.test(line)) assert.match(line, /LanguageMode -eq 'FullLanguage'/, line);
+});
+
+test('DPAPI scripts roundtrip under ConstrainedLanguage', { skip: !powershell && '需要 PowerShell' }, async () => {
+  assert.equal(lastLine((await ps(constrained + '$ExecutionContext.SessionState.LanguageMode', '')).stdout), 'ConstrainedLanguage');
+  const secret = token + '-中文é😀';
+  const sealed = await ps(constrained + DPAPI_SCRIPTS.protect, encodeCodeUnits(secret));
+  assert.equal(sealed.code, 0, sealed.stderr);
+  const cipher = lastLine(sealed.stdout);
+  assert.match(cipher, /^[0-9a-f]+$/i);
+  if (process.platform === 'win32') assert.ok(cipher.toLowerCase().startsWith(DPAPI_HEADER), 'current-user DPAPI blob');
+  const opened = await ps(constrained + DPAPI_SCRIPTS.unprotect, encodeCodeUnits(cipher));
+  assert.equal(opened.code, 0, opened.stderr);
+  assert.equal(decodeCodeUnits(lastLine(opened.stdout)), secret);
+  assert.equal((sealed.stdout + sealed.stderr + opened.stderr).includes(token), false);
+});
+
+// 系统策略把整台机器锁在受限模式时，0.3.3 的原脚本自己就跑不起来，那项跳过。
+const systemMode = process.platform === 'win32' ? lastLine((await ps('$ExecutionContext.SessionState.LanguageMode', '')).stdout) : '';
+
+test('connections saved by 0.3.3 still open, also under ConstrainedLanguage', { skip: process.platform !== 'win32' ? true : systemMode !== 'FullLanguage' && '系统处在受限模式，造不出 0.3.3 的密文' }, async () => {
+  // 0.3.3 的加密脚本原样：普通模式下产出的密文，新版不用重连就能读。
+  const legacy = "$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); [Console]::InputEncoding=[Text.UTF8Encoding]::new($false); $v=[Console]::In.ReadToEnd(); $s=ConvertTo-SecureString $v -AsPlainText -Force; [Console]::Write((ConvertFrom-SecureString $s))";
+  const sealed = await ps(legacy, token);
+  assert.equal(sealed.code, 0, sealed.stderr);
+  const cipher = sealed.stdout.trim();
+  const opened = await ps(constrained + DPAPI_SCRIPTS.unprotect, encodeCodeUnits(cipher));
+  assert.equal(decodeCodeUnits(lastLine(opened.stdout)), token);
+  const configPath = resolve(folder, 'legacy', 'connection.json');
+  await mkdir(resolve(folder, 'legacy'), { recursive: true });
+  const url = 'http://127.0.0.1:4196/mcp';
+  await writeFile(configPath, JSON.stringify({ version: 1, url, protection: 'windows-dpapi', token: cipher }));
+  assert.deepEqual(await readConnection({ HUNDREDX_CONFIG_PATH: configPath }), { url, token });
+});
+
+test('Windows saved connection is DPAPI-sealed and only the current user and SYSTEM can open it', { skip: process.platform !== 'win32' }, async () => {
+  const configPath = resolve(folder, 'acl', 'connection.json');
+  await saveConnection({ url: 'http://127.0.0.1:4196/mcp', token }, { HUNDREDX_CONFIG_PATH: configPath });
+  const record = JSON.parse(await readFile(configPath, 'utf8'));
+  assert.equal(record.protection, 'windows-dpapi');
+  assert.ok(record.token.toLowerCase().startsWith(DPAPI_HEADER));
+  assert.equal(JSON.stringify(record).includes(token), false);
+  // 读 SDDL 字符串，受限模式下也放行：D:P 是不继承，每条 ACE 是「允许;无继承标记;FA 全部权限;;;SID」。
+  const sddl = lastLine((await ps('(Get-Acl -LiteralPath $env:ACL_PATH).Sddl', '', { ACL_PATH: configPath })).stdout);
+  const dacl = /D:([A-Z]*)((?:\([^)]*\))*)/.exec(sddl);
+  assert.ok(dacl && dacl[1].includes('P'), 'inheritance removed: ' + sddl);
+  const me = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], { encoding: 'utf8' }).match(/S-1-\d+(?:-\d+)+/g).pop();
+  assert.deepEqual(dacl[2].match(/\([^)]*\)/g).sort(), ['(A;;FA;;;' + me + ')', '(A;;FA;;;SY)'].sort());
 });
 
 test('media download from current 100x endpoint cannot overwrite files', async () => {

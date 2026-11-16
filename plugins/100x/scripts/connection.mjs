@@ -78,17 +78,47 @@ async function keychainUnprotect(cipher, options) {
   return value;
 }
 
-function dpapiUnprotect(cipher) {
+// Windows 的 PowerShell 可能处在受限语言模式（AppLocker、WDAC）：只放行 cmdlet 和少数核心类型，[Console]、Marshal、
+// .NET 的 ACL 类型都会被拦。所以加解密只用 ConvertTo / ConvertFrom-SecureString（不带 -Key 就是当前用户的 DPAPI，
+// 密文格式与 0.3.3 相同，旧文件照读）和 PSCredential；文本按 UTF-16 码元的十进制列表过标准输入输出，不受控制台代码页影响。
+// 两种模式都能跑，测试在受限模式下实跑这两段。
+const READ_INPUT = "$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); $v=-join ((@($input) -join '') -split ',' | ForEach-Object { [char][int]$_ });";
+export const DPAPI_SCRIPTS = Object.freeze({
+  protect: READ_INPUT + " ConvertFrom-SecureString (ConvertTo-SecureString $v -AsPlainText -Force)",
+  unprotect: READ_INPUT + " $p=(New-Object PSCredential -ArgumentList '100x',(ConvertTo-SecureString $v)).GetNetworkCredential().Password; ($p.ToCharArray() | ForEach-Object { [int]$_ }) -join ','",
+});
+
+export function encodeCodeUnits(text) {
+  const codes = [];
+  for (let i = 0; i < text.length; i++) codes.push(text.charCodeAt(i));
+  return codes.join(',');
+}
+
+export function decodeCodeUnits(text) {
+  if (text === '') return '';
+  if (!/^\d{1,5}(,\d{1,5})*$/.test(text)) throw new Error('invalid code units');
+  const codes = text.split(',').map(Number);
+  if (codes.some(code => code > 0xffff)) throw new Error('invalid code units');
+  return String.fromCharCode(...codes);
+}
+
+// 明文只走标准输入，不进命令参数；出错不带 PowerShell 原文，免得把凭据带进日志。结果取最后一行，前面的警告行不算。
+function runPowerShell(script, input, failure) {
   return new Promise((resolve, reject) => {
-    const script = "$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); $v=[Console]::In.ReadToEnd(); $s=ConvertTo-SecureString $v; $p=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try { [Console]::OutputEncoding=[Text.UTF8Encoding]::new($false); [Console]::Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($p)) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($p) }";
     const child = execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
-      { windowsHide: true, timeout: 10000, maxBuffer: 16384 }, (err, stdout) => {
-        if (err) reject(new ConnectionError('100X_CREDENTIAL_UNREADABLE', '100x 凭据无法解密，请在当前 Windows 用户下重新连接。'));
-        else resolve(stdout);
+      { windowsHide: true, timeout: 10000, maxBuffer: 1024 * 1024 }, (error, stdout) => {
+        if (error) return reject(failure);
+        resolve(String(stdout).trim().split(/\r?\n/).pop().trim());
       });
     child.stdin.on('error', () => {});
-    child.stdin.end(cipher);
+    child.stdin.end(encodeCodeUnits(input));
   });
+}
+
+async function dpapiUnprotect(cipher) {
+  const failure = new ConnectionError('100X_CREDENTIAL_UNREADABLE', '100x 凭据无法解密，请在当前 Windows 用户下重新连接。');
+  const output = await runPowerShell(DPAPI_SCRIPTS.unprotect, String(cipher).trim(), failure);
+  try { return decodeCodeUnits(output); } catch { throw failure; }
 }
 
 export async function unprotect(cipher, options = {}) {
@@ -116,12 +146,11 @@ export async function readConnection(env = process.env, options = {}) {
   return { url, token: cachedToken };
 }
 
-function dpapiProtect(value) {
-  return new Promise((resolve, reject) => {
-    const script = "$ErrorActionPreference='Stop'; Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1'); [Console]::InputEncoding=[Text.UTF8Encoding]::new($false); $v=[Console]::In.ReadToEnd(); $s=ConvertTo-SecureString $v -AsPlainText -Force; [Console]::Write((ConvertFrom-SecureString $s))";
-    const child = execFile('powershell.exe', ['-NoLogo','-NoProfile','-NonInteractive','-Command',script], { windowsHide:true,timeout:10000,maxBuffer:32768 }, (error,stdout) => error ? reject(new ConnectionError('100X_SAVE_FAILED','无法加密凭据，请重试保存。')) : resolve(stdout));
-    child.stdin.on('error',()=>{}); child.stdin.end(value);
-  });
+async function dpapiProtect(value) {
+  const failure = new ConnectionError('100X_SAVE_FAILED', '无法加密凭据，请重试保存。');
+  const cipher = await runPowerShell(DPAPI_SCRIPTS.protect, value, failure);
+  if (!/^[0-9a-f]+$/i.test(cipher)) throw failure;
+  return cipher;
 }
 
 export async function protect(value, options = {}) {
@@ -130,12 +159,20 @@ export async function protect(value, options = {}) {
   return target === 'win32' ? dpapiProtect(value) : keychainProtect(value, options);
 }
 
-function lockDownWindowsFile(path) {
-  return new Promise((resolve,reject)=>{
-    const script = "$ErrorActionPreference='Stop'; [Console]::InputEncoding=[Text.UTF8Encoding]::new($false); $p=[Console]::In.ReadToEnd(); $acl=[Security.AccessControl.FileSecurity]::new(); $acl.SetAccessRuleProtection($true,$false); $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User; $acl.SetAccessRule([Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','Allow')); $acl.SetAccessRule([Security.AccessControl.FileSystemAccessRule]::new([Security.Principal.SecurityIdentifier]::new('S-1-5-18'),'FullControl','Allow')); [IO.File]::SetAccessControl($p,$acl)";
-    const child=execFile('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-Command',script],{windowsHide:true,timeout:10000},error=>error?reject(new ConnectionError('100X_SAVE_FAILED','无法保护本机凭据文件，请重试保存。')):resolve());
-    child.stdin.on('error',()=>{}); child.stdin.end(path);
+function execText(file, args) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { windowsHide: true, timeout: 10000 }, (error, stdout) => error ? reject(error) : resolve(String(stdout)));
   });
+}
+
+// 不经 PowerShell：受限语言模式拦 .NET 的 ACL 类型，icacls 不受影响。去掉继承来的权限，只留当前用户和 SYSTEM，与 0.3.3 相同。
+let windowsUserSid;
+async function lockDownWindowsFile(path) {
+  try {
+    windowsUserSid ||= (await execText('whoami.exe', ['/user', '/fo', 'csv', '/nh'])).match(/S-1-\d+(?:-\d+)+/g)?.pop();
+    if (!windowsUserSid) throw new Error('no user sid');
+    await execText('icacls.exe', [path, '/inheritance:r', '/grant:r', '*' + windowsUserSid + ':(F)', '*S-1-5-18:(F)', '/q']);
+  } catch { throw new ConnectionError('100X_SAVE_FAILED', '无法保护本机凭据文件，请重试保存。'); }
 }
 
 export async function saveProtected(path, record, options = {}) {
