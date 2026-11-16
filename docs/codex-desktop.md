@@ -14,7 +14,7 @@
 - **Codex CLI**：0.155.1 或更新版本（支持插件）
 - **100x 账户**：登录后授权当前设备；v0.3.0 起默认使用 100x 官方授权服务。
 
-> 注：实测说明：v0.2.0 已在 Windows Codex Desktop 0.155.1 验证 8 个工具和 SKILL。v0.3.0 新增网页授权工具，已在 Windows 验证完整网页授权、加密保存与撤销。v0.3.1 补齐 macOS：钥匙串加密保存、`install.sh` 安装器与手动连接入口，客户端测试用替身钥匙串在 Windows 上全绿，**但尚未在真实 macOS 机器上跑过一次完整安装与授权**，属于待验收状态。Linux 只能安装插件，凭据保存会明确报错，不退回明文。
+> 注：实测说明：v0.2.0 已在 Windows Codex Desktop 0.155.1 验证 8 个工具和 SKILL。v0.3.0 新增网页授权工具，已在 Windows 验证完整网页授权、加密保存与撤销。v0.3.1 补齐 macOS：钥匙串加密保存、`install.sh` 安装器与手动连接入口，客户端测试用替身钥匙串在 Windows 上全绿，**但尚未在真实 macOS 机器上跑过一次完整安装与授权**，属于待验收状态。v0.3.4 修好 Windows 受限语言模式（AppLocker / WDAC）下凭据存不了的问题。Linux 只能安装插件，凭据保存会明确报错，不退回明文。
 
 ---
 
@@ -36,6 +36,12 @@ Windows PowerShell，运行以下单行命令：
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1))) -Connect
+```
+
+PowerShell 处在受限语言模式（`$ExecutionContext.SessionState.LanguageMode` 显示 `ConstrainedLanguage`）时，上面这行会报 `Method invocation is supported only on core types`，改用这条：
+
+```powershell
+iex ('& {' + ((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1) -replace '^\uFEFF') + '} -Connect')
 ```
 
 macOS 终端，运行以下单行命令：
@@ -76,12 +82,12 @@ Codex 中发送「连接 100x」即可打开授权流程。允许后先显示「
 凭据保存：
 
 1. **操作系统级密文存储**：
-   - **Windows**：令牌通过 DPAPI 加密后保存在 `%LOCALAPPDATA%/100x/connection.json`，文件权限收紧为仅当前用户与系统。
+   - **Windows**：令牌通过 DPAPI 加密后保存在 `%LOCALAPPDATA%/100x/connection.json`，文件权限收紧为仅当前用户与系统。PowerShell 处在受限语言模式时同样能存。
    - **macOS**：令牌存入当前登录用户的钥匙串（服务名 `100x-codex`），写入时只通过标准输入传递、不进入进程参数表；`~/Library/Application Support/100x/connection.json` 只保存 `keychain:1:<条目名>` 这样的引用，目录与文件权限为 `700 / 600`。
    - 两边都绑定当前系统账户：配置文件复制到另一台机器或另一个用户下同样解不开，会报 `100X_CREDENTIAL_UNREADABLE`。
 2. **禁止对话暴露**：不要在 Codex 聊天窗口内索取、粘贴或输出完整 Token。
 3. **无需手动修改配置**：安装器会自动配置 MCP 入口，无需手动编辑 `config.toml`。
-4. **网页授权不可用时**：可运行 `node <插件目录>/scripts/connect-manual.mjs`（macOS / Linux）或 `scripts/connect.ps1`（Windows）手动录入地址与令牌，输入过程隐藏、不回显。
+4. **网页授权不可用时**：可运行 `node <插件目录>/scripts/connect-manual.mjs`（Windows、macOS 通用）手动录入地址与令牌，输入过程隐藏、不回显。
 
 ---
 
@@ -172,3 +178,7 @@ codex plugin marketplace remove 100x
 ### Q6: macOS 提示 `100X_CONFIG_PLATFORM`
 - **原因**：当前系统不是 Windows 或 macOS（例如 Linux）。100x 不会在没有操作系统级保护的平台上退回明文保存。
 - **解决**：改用 `HUNDREDX_URL` 与 `HUNDREDX_TOKEN` 环境变量接入，并确认桌面端进程确实继承了这两个变量。
+
+### Q7: Windows 提示「无法加密凭据，请重试保存」，网页上的连接一直「等待保存」
+- **原因**：v0.3.3 及更早版本在 PowerShell 受限语言模式（AppLocker / WDAC）下存不了凭据，没存成就不会回执给网站，所有调用都报 `100X_NOT_CONNECTED`。
+- **解决**：升级到 v0.3.4：先运行 `codex plugin marketplace upgrade 100x`，再用上面受限模式那条命令重新安装并连接。已经在普通模式下连好的，升级后不用重新连接。

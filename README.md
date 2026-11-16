@@ -6,7 +6,7 @@
 
 让 Codex 对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
 
-**版本**：v0.3.3 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
+**版本**：v0.3.4 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
 
 ---
 
@@ -26,6 +26,12 @@
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1))) -Connect
+```
+
+公司电脑开了 AppLocker 或 WDAC 时，PowerShell 处在受限语言模式（`$ExecutionContext.SessionState.LanguageMode` 显示 `ConstrainedLanguage`），上面这行会报 `Method invocation is supported only on core types`。改用这条：
+
+```powershell
+iex ('& {' + ((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1) -replace '^\uFEFF') + '} -Connect')
 ```
 
 **macOS 终端**（同一套网页授权，凭据存入当前用户的 macOS 钥匙串）：
@@ -50,7 +56,7 @@ codex plugin add 100x@100x --json
 ./install.sh --source "/your-folder/100x-mcp" --connect
 ```
 
-环境前提：Node.js 22+、Git、Codex CLI 0.155.1+。v0.2.0 曾在 Windows Codex Desktop 0.155.1 验证 8 个工具；v0.3.0 增加网页授权工具，在 Windows 完成 9 个工具的标准输入输出验证；v0.3.1 补齐 macOS 钥匙串授权向导与 `install.sh`，**macOS 真机验收待完成**。系统兼容性与排错详见 [接入指南](./docs/codex-desktop.md)。
+环境前提：Node.js 22+、Git、Codex CLI 0.155.1+。v0.2.0 曾在 Windows Codex Desktop 0.155.1 验证 8 个工具；v0.3.0 增加网页授权工具，在 Windows 完成 9 个工具的标准输入输出验证；v0.3.1 补齐 macOS 钥匙串授权向导与 `install.sh`，**macOS 真机验收待完成**；v0.3.4 起 Windows 受限语言模式下也能保存凭据。系统兼容性与排错详见 [接入指南](./docs/codex-desktop.md)。
 </details>
 
 ---

@@ -1,5 +1,17 @@
 # 验证记录
 
+## 0.3.4 · Windows 受限语言模式下保存凭据（Windows 真机待验收）
+
+问题：PowerShell 处在受限语言模式（AppLocker、WDAC）时，客户端起的 PowerShell 改控制台编码、用 `[Console]::In` 读输入、用 `Marshal` 解出明文、用 .NET 的 ACL 类型收紧权限，这几步都被拦。凭据存不了，就不回执给网站。DPAPI 加密本身用的就是 `ConvertFrom-SecureString`，密文格式这次不变。
+
+2026-11-16 在 Mac 上实际跑过：
+
+- `node --test tests/*.test.mjs`：27 项通过，4 项只在 Windows 或装了 PowerShell 时跑，跳过。
+- 容器里的 PowerShell 7.5 切到受限语言模式：旧版这四处写法都报「only core types」，旧 `install.ps1` 停在第 4 行；新的加解密脚本往返通过（含中文和 emoji）；`install.ps1` 用替身 codex、node 走完 `-Connect`；受限模式那条安装命令在两种模式下、脚本带不带 BOM 都能跑。同一容器装上 Node 跑 `tests/client.test.mjs`：10 项通过，3 项只在 Windows 跑。
+- Codex CLI 0.169 用隔离的 `CODEX_HOME`：本地源从 0.3.3 重跑安装器装成 0.3.4，插件缓存按版本分目录。
+
+还要在 Windows 真机上验收：受限模式下 `-Connect` 到网页「已授权」、在 Codex 里查型号和余额；普通模式照样走通；0.3.3 连好后升级不用重连；凭据文件是当前用户的 DPAPI 密文，权限只有当前用户和 SYSTEM。
+
 ## 0.3.1 · macOS 授权向导（代码路径已验，真机待验收）
 
 2026-09-22 晚，在 Windows 机器上完成 macOS 代码路径的验证。**没有真实 macOS 设备参与，这一节不构成 macOS 验收。**

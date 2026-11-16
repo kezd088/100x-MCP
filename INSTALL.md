@@ -20,6 +20,12 @@ Windows PowerShell（可以先浏览本仓库的 `install.ps1`）：
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1))) -Connect
 ```
 
+PowerShell 处在受限语言模式（`$ExecutionContext.SessionState.LanguageMode` 显示 `ConstrainedLanguage`，常见于开了 AppLocker 或 WDAC 的公司电脑）时，上面这行会被拦，改用这条：
+
+```powershell
+iex ('& {' + ((irm https://raw.githubusercontent.com/kezd088/100x-MCP/main/install.ps1) -replace '^\uFEFF') + '} -Connect')
+```
+
 macOS 终端（可以先浏览本仓库的 `install.sh`）：
 
 ```sh
@@ -35,12 +41,14 @@ codex plugin marketplace add kezd088/100x-MCP --json
 codex plugin add 100x@100x --json
 ```
 
-macOS 凭据存在当前用户的钥匙串（`security` 服务名 `100x-codex`），配置文件在 `~/Library/Application Support/100x/connection.json` 且只记录条目引用。网页授权不可用时，可运行 `node <插件目录>/scripts/connect-manual.mjs` 手动录入地址与令牌（隐藏输入，不回显）。
+macOS 凭据存在当前用户的钥匙串（`security` 服务名 `100x-codex`），配置文件在 `~/Library/Application Support/100x/connection.json` 且只记录条目引用。Windows 凭据用当前用户的 DPAPI 加密，存在 `%LOCALAPPDATA%/100x/connection.json`，文件只给当前用户和 SYSTEM；PowerShell 处在受限语言模式时同样能存。
+
+网页授权不可用时，Windows 和 macOS 都可运行 `node <插件目录>/scripts/connect-manual.mjs` 手动录入地址与令牌（隐藏输入，不回显）。
 
 Linux 的加密凭据向导仍未提供：`install.sh` 可以装插件，但保存凭据会明确报 `100X_CONFIG_PLATFORM`，不会退回明文保存。开发者可通过 `HUNDREDX_URL`（完整 `/api/mcp` 地址）及 `HUNDREDX_TOKEN` 环境变量接入，但桌面端必须实际继承这些变量；终端临时赋值不等于 GUI 已配置。
 
 ## 状态与更新
 
-v0.3.3 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
+v0.3.4 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
 
 开发验证可使用 `./install.ps1 -Source <本地仓库绝对路径>` 或 `./install.sh --source <本地仓库绝对路径>`；这只应连接本机测试服务。不要把 localhost 地址作为其他用户的公网接入地址。
