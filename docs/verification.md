@@ -1,6 +1,6 @@
 # 验证记录
 
-## 0.3.4 · Windows 受限语言模式下保存凭据（Windows 真机待验收）
+## 0.3.4 · Windows 受限语言模式下保存凭据
 
 问题：PowerShell 处在受限语言模式（AppLocker、WDAC）时，客户端起的 PowerShell 改控制台编码、用 `[Console]::In` 读输入、用 `Marshal` 解出明文、用 .NET 的 ACL 类型收紧权限，这几步都被拦。凭据存不了，就不回执给网站。DPAPI 加密本身用的就是 `ConvertFrom-SecureString`，密文格式这次不变。
 
@@ -10,7 +10,15 @@
 - 容器里的 PowerShell 7.5 切到受限语言模式：旧版这四处写法都报「only core types」，旧 `install.ps1` 停在第 4 行；新的加解密脚本往返通过（含中文和 emoji）；`install.ps1` 用替身 codex、node 走完 `-Connect`；受限模式那条安装命令在两种模式下、脚本带不带 BOM 都能跑。同一容器装上 Node 跑 `tests/client.test.mjs`：10 项通过，3 项只在 Windows 跑。
 - Codex CLI 0.169 用隔离的 `CODEX_HOME`：本地源从 0.3.3 重跑安装器装成 0.3.4，插件缓存按版本分目录。
 
-还要在 Windows 真机上验收：受限模式下 `-Connect` 到网页「已授权」、在 Codex 里查型号和余额；普通模式照样走通；0.3.3 连好后升级不用重连；凭据文件是当前用户的 DPAPI 密文，权限只有当前用户和 SYSTEM。
+2026-11-16 在 Windows 11（PowerShell 5.1.26100，Codex CLI 0.162）上用测试账号连正式站验收，四条都过：
+
+- 0.3.3 升级：先装 0.3.3 并连上，再装成 0.3.4，不重新连接，stdio 桥列出 19 个型号和余额；之后切到受限模式，同一份旧凭据照样能读。
+- 受限模式：系统级 `__PSLockdownPolicy=4`，新起的 PowerShell 显示 `ConstrainedLanguage`。用文档里受限模式那条命令安装并 `-Connect`，网页允许后本机保存成功，网页显示「已授权」，stdio 桥查到型号和余额。
+- 普通模式：0.3.4 全新 `-Connect` 照样走通。
+- 凭据文件：`protection` 为 `windows-dpapi`，密文是 DPAPI 格式；DACL 不继承，只有当前用户和 SYSTEM 两条完全控制。
+- `tests/client.test.mjs`：普通模式下 Windows 专属的 4 项全过；系统级受限模式下 12 过、0.3.3 那项按设计跳过。`tests/install-sh.test.mjs` 在这台 Windows 上 6 项失败，0.3.3 上同样失败，与这次改动无关。
+
+受限模式下 PowerShell 优先跑 `codex.ps1` 外壳；这台机器的 codex 包装脚本在受限模式下跑不起来，验收时把 npm 装的 codex 放在 PATH 前面。npm 生成的外壳只有比较、`Test-Path` 和调用 node，受限模式下能跑。Codex 桌面端那一步用同一个 stdio 桥直接调工具代替。
 
 ## 0.3.1 · macOS 授权向导（代码路径已验，真机待验收）
 
