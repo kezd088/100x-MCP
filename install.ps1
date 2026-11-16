@@ -1,7 +1,8 @@
 ﻿[CmdletBinding()]
 param([string]$Source = 'kezd088/100x-MCP', [switch]$Connect)
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+# 受限语言模式（AppLocker、WDAC）不让改控制台编码，那时用系统默认编码，安装和凭据保存都不受影响。
+if ($ExecutionContext.SessionState.LanguageMode -eq 'FullLanguage') { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) }
 
 function Invoke-CodexJson {
     param([string[]]$Arguments)

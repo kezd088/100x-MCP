@@ -1,5 +1,5 @@
-// 手动连接入口（macOS / Linux）：与 Windows 的 connect.ps1 对应，只在网页授权不可用时使用。
-// 常规路径是 connect.mjs 的网页授权；这里只接受管理员给出的 100x 地址与本人令牌。
+// 手动连接入口（Windows、macOS 通用），只在网页授权不可用时使用：常规路径是 connect.mjs 的网页授权。
+// 只接受管理员给出的 100x 地址与本人令牌，保存走同一套加密存储，Windows 受限语言模式下也能存。
 import { createInterface } from 'node:readline';
 import { saveConnection } from './connection.mjs';
 
