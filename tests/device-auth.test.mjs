@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DeviceConnection } from '../plugins/100x/scripts/device-auth.mjs';
+import { DeviceConnection, openInBrowser } from '../plugins/100x/scripts/device-auth.mjs';
 
 function client(fetchImpl,save=async()=>{}) {
   const value=new DeviceConnection({HUNDREDX_CONFIG_PATH:'unused-test-path'},{fetch:fetchImpl,save});
@@ -39,14 +39,35 @@ test('connect opens the authorization page itself, again when the same request i
   assert.equal((await c.connect()).browser_opened,true);assert.deepEqual(opened,[c.pending.verification_uri,c.pending.verification_uri]);clearTimeout(c.timer);
 });
 test('without a browser the link is still returned and marked unopened',async()=>{
-  const c=client(async()=>response({status:'pending'}));c.open=()=>{throw new Error('no opener');};
-  const state=await c.connect();assert.equal(state.browser_opened,false);assert.ok(state.verification_uri);clearTimeout(c.timer);
+  for(const open of [()=>{throw new Error('no opener');},async()=>false]) {
+    const c=client(async()=>response({status:'pending'}));c.open=open;
+    const state=await c.connect();assert.equal(state.browser_opened,false);assert.ok(state.verification_uri);clearTimeout(c.timer);
+  }
+});
+test('openInBrowser reports a failed system opener as unopened',async()=>{
+  assert.equal(await openInBrowser('https://100xspeed.app/','linux'),false);
+});
+test('only http and https authorization pages reach the browser',async()=>{
+  for(const verification of ['ftp://127.0.0.1/x','blob:http://127.0.0.1:4188/x']) {
+    const opened=[];const c=new DeviceConnection({HUNDREDX_URL:'http://127.0.0.1:4188/api/mcp',HUNDREDX_CONFIG_PATH:'unused-test-path'},{open:url=>{opened.push(url);return true;},fetch:async url=>String(url).endsWith('/device')?response({verification_uri:verification,user_code:'ABC1234567',expires_at:new Date(Date.now()+600000).toISOString()}):response({},401)});
+    c.loaded=true;c.persist=async()=>{};c.status=async()=>{const e=new Error('x');e.code='100X_NOT_CONNECTED';throw e;};
+    await assert.rejects(c.connect(),{code:'100X_PROTOCOL_ERROR'});assert.deepEqual(opened,[]);
+  }
+});
+test('status never polls sooner than the server interval after the previous poll',async()=>{
+  const at=[];const c=client(async()=>{at.push(Date.now());return response({status:'pending'});});c.delay=200;c.lastPoll=Date.now();
+  await c.status({wait:700});clearTimeout(c.timer);
+  assert.ok(at.length>=2);for(let i=1;i<at.length;i++)assert.ok(at[i]-at[i-1]>=190,String(at[i]-at[i-1]));
+});
+test('a slow poll does not stretch status past its wait',async()=>{
+  const c=client(async()=>{await new Promise(r=>setTimeout(r,800));return response({status:'pending'});});c.delay=20;
+  const started=Date.now();const state=await c.status({wait:150});assert.equal(state.status,'waiting');assert.ok(Date.now()-started<500,String(Date.now()-started));clearTimeout(c.timer);
 });
 test('status waits for the approval and returns connected without another tool call',async()=>{
   let claims=0;const c=client(async url=>{
     if(String(url).endsWith('/token')) {claims++;return response(claims<2?{status:'pending'}:{status:'approved',access_token:'100x_'+'b'.repeat(48)});}
     return response({status:'connected'});
-  });c.delay=20;c.env={HUNDREDX_URL:'http://127.0.0.1:4188/api/mcp',HUNDREDX_TOKEN:'100x_'+'b'.repeat(48)};
+  });c.delay=20;
   const state=await c.status({wait:5000});assert.equal(state.status,'connected');assert.equal(claims,2);clearTimeout(c.timer);
 });
 test('status stops waiting at the deadline and reports waiting',async()=>{

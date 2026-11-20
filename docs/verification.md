@@ -9,7 +9,7 @@
 
 2026-11-20 在 Mac 上实际跑过：
 
-- `node --test tests/*.test.mjs`：42 项通过，4 项跳过。新加的测试：自动打开浏览器、续用同一请求时再打开、没有浏览器时返回链接、等待期间批准就返回 connected、到时限返回 waiting、`instructions` 等于 SKILL 正文。
+- `node --test tests/*.test.mjs`：46 项通过，4 项跳过。新加的测试：自动打开浏览器、续用同一请求时再打开、打开失败（同步抛错或异步报错）时返回 `browser_opened: false`、只把 http(s) 授权页交给浏览器、等待期间批准就返回 connected、到时限返回 waiting、慢请求不拉长等待、两次轮询间隔不短于服务端要求、`instructions` 等于 SKILL 正文。
 - `mcpb validate` 通过，包 26.6 KB、9 个文件。解包后用最小环境启动：回 0.3.7、11 个工具、`instructions` 1715 字。
 - 未验证：在 Claude 桌面端里真实安装和授权（本机 Claude 桌面端没登录）。
 

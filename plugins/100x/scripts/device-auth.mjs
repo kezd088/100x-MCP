@@ -10,15 +10,15 @@ export function fitUnits(text,max) { let out=''; for(const char of String(text))
 export function openInBrowser(url,platform=process.platform) {
   const opener=platform==='win32'?['rundll32.exe',['url.dll,FileProtocolHandler',url]]:platform==='darwin'?['/usr/bin/open',[url]]:null;
   if(!opener) return false;
-  execFile(opener[0],opener[1],{windowsHide:true},()=>{}).unref();
-  return true;
+  return new Promise(resolve=>{ execFile(opener[0],opener[1],{windowsHide:true,timeout:5000},error=>resolve(!error)); });
 }
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 export class DeviceConnection {
   constructor(env=process.env, dependencies={}) {
     this.env=env; this.fetch=dependencies.fetch || fetch; this.save=dependencies.save || saveConnection;
     this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP'); this.open=dependencies.open || (()=>false);
-    this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null;
+    this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null; this.lastPoll=0;
   }
   deviceName() { const system=' · '+(SYSTEM_NAMES[this.platform] || this.platform); return fitUnits(this.env.HUNDREDX_HOST || this.host,64-system.length)+system; }
   get platform() { return this.protection.platform || process.platform; }
@@ -47,7 +47,7 @@ export class DeviceConnection {
     if(this.flight) return this.flight;
     this.flight=(async()=>{
       await this.advancing?.catch(()=>{});
-      if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.opened(); }
+      if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return await this.opened(); }
       this.pending=null; this.state=null;
       try { const current=await this.status(); if(current.status==='connected') return current; } catch(error) { if(!REAUTHORIZE.has(error.code)) throw error; }
       const url=validateEndpoint(this.env.HUNDREDX_URL || 'https://100xspeed.app/api/mcp');
@@ -55,18 +55,20 @@ export class DeviceConnection {
       const result=await this.call(url,'device',{body:{device_code:deviceCode,device_name:this.deviceName()}});
       const verification=new URL(result.verification_uri);
       const local=['127.0.0.1','localhost','[::1]'].includes(new URL(url).hostname);
-      if((!local && verification.origin!==new URL(url).origin) || (local && !['127.0.0.1','localhost','[::1]'].includes(verification.hostname))) throw new ConnectionError('100X_PROTOCOL_ERROR','授权页面地址无效。');
-      this.pending={url,deviceCode,user_code:result.user_code,verification_uri:verification.href,expires_at:result.expires_at};
-      await this.persist(); this.state={status:'waiting'}; this.schedule(); return this.opened();
+      if(!['http:','https:'].includes(verification.protocol) || (!local && verification.origin!==new URL(url).origin) || (local && !['127.0.0.1','localhost','[::1]'].includes(verification.hostname))) throw new ConnectionError('100X_PROTOCOL_ERROR','授权页面地址无效。');
+      this.pending={url,deviceCode,user_code:result.user_code,verification_uri:verification.href,expires_at:result.expires_at}; this.lastPoll=Date.now();
+      await this.persist(); this.state={status:'waiting'}; this.schedule(); return await this.opened();
     })().finally(()=>this.flight=null);
     return this.flight;
   }
   schedule() {
     if(this.timer || !this.pending) return;
-    this.timer=setTimeout(()=>{ this.timer=null; void this.advance().catch(()=>{}); },this.delay || 3100); this.timer.unref();
+    const interval=this.delay || 3100, due=this.lastPoll ? this.lastPoll+interval-Date.now() : interval;
+    this.timer=setTimeout(()=>{ this.timer=null; if(this.lastPoll+interval>Date.now()) return this.schedule(); void this.advance().catch(()=>{}); },Math.max(0,due)); this.timer.unref();
   }
-  opened() {
-    let opened=false; try { opened=this.open(this.pending.verification_uri,this.platform)===true; } catch {}
+  async opened() {
+    const url=this.pending.verification_uri;
+    let opened=false; try { opened=await this.open(url,this.platform)===true; } catch {}
     return {...this.publicState(),browser_opened:opened};
   }
   publicState() {
@@ -80,7 +82,7 @@ export class DeviceConnection {
         if(!p) return;
         if(Date.parse(p.expires_at)<Date.now()) { this.state={status:'expired',message:'连接已过期，请重新连接。'}; this.pending=null; await this.persist(); return; }
         if(!p.token) {
-          const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
+          this.lastPoll=Date.now(); const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
           if(result.status==='denied') { this.state={status:'denied',message:'本次授权已取消。'}; this.pending=null; await this.persist(); return; }
           if(result.status==='pending') { this.state={status:'waiting'}; return; }
           if(result.status==='connected') {
@@ -103,10 +105,19 @@ export class DeviceConnection {
     })().finally(()=>this.advancing=null);
     return this.advancing;
   }
+  async waitForDecision(deadline) {
+    while(this.pending && Date.now()<deadline) {
+      const due=this.lastPoll+(this.delay || 3100)-Date.now();
+      if(due>0) { await sleep(Math.min(due,deadline-Date.now())); continue; }
+      await this.advance();
+    }
+  }
   async status({wait=0}={}) {
     await this.load();
-    const deadline=Date.now()+wait;
-    while(this.pending && Date.now()<deadline) { await this.advance(); if(this.pending) await new Promise(resolve=>setTimeout(resolve,Math.min(this.delay || 3100,Math.max(0,deadline-Date.now())))); }
+    if(this.pending && wait>0) {
+      await Promise.race([this.waitForDecision(Date.now()+wait),sleep(wait)]);
+      if(!this.pending && this.state?.status==='connected') return this.publicState();
+    }
     if(this.pending) { this.schedule(); return this.publicState(); }
     if(['denied','expired'].includes(this.state?.status)) return this.publicState();
     const saved=await readConnection(this.env,this.protection);
