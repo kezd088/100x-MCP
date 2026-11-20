@@ -74,3 +74,13 @@ test('status stops waiting at the deadline and reports waiting',async()=>{
   const c=client(async()=>response({status:'pending'}));c.delay=20;
   const started=Date.now();const state=await c.status({wait:120});assert.equal(state.status,'waiting');assert.ok(Date.now()-started<1000);clearTimeout(c.timer);
 });
+test('after approval, failed saves retry no faster than the poll interval',async()=>{
+  const saves=[];const c=client(async()=>response({status:'approved',access_token:'100x_'+'b'.repeat(48)}),async()=>{saves.push(Date.now());throw new Error('locked');});c.delay=100;
+  await c.status({wait:450});clearTimeout(c.timer);
+  assert.ok(saves.length>=2 && saves.length<=6,String(saves.length));for(let i=1;i<saves.length;i++)assert.ok(saves[i]-saves[i-1]>=95,String(saves[i]-saves[i-1]));
+});
+test('the interval counts from when the previous reply arrived',async()=>{
+  const sent=[];let first=true;const c=client(async()=>{sent.push(Date.now());if(first){first=false;await new Promise(r=>setTimeout(r,120));}return response({status:'pending'});});c.delay=100;
+  await c.status({wait:400});clearTimeout(c.timer);
+  assert.ok(sent.length>=2);assert.ok(sent[1]-sent[0]>=215,String(sent[1]-sent[0]));
+});

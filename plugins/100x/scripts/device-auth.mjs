@@ -80,9 +80,10 @@ export class DeviceConnection {
       const p=this.pending;
       try {
         if(!p) return;
+        this.lastPoll=Date.now();
         if(Date.parse(p.expires_at)<Date.now()) { this.state={status:'expired',message:'连接已过期，请重新连接。'}; this.pending=null; await this.persist(); return; }
         if(!p.token) {
-          this.lastPoll=Date.now(); const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
+          const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
           if(result.status==='denied') { this.state={status:'denied',message:'本次授权已取消。'}; this.pending=null; await this.persist(); return; }
           if(result.status==='pending') { this.state={status:'waiting'}; return; }
           if(result.status==='connected') {
@@ -101,7 +102,7 @@ export class DeviceConnection {
         if(['expired_token','access_denied','100X_AUTH_FAILED'].includes(code)) { this.pending=null; this.state={status:'expired',message:'授权已失效，请重新连接。'}; await this.persist(); }
         else if(code==='slow_down') this.delay=Math.min(15000,(this.delay || 3100)+3000);
         else this.state={status:code==='100X_SAVE_FAILED'?'save_error':'offline',message:error instanceof ConnectionError?error.message:'本机保存未完成，请重试。'};
-      } finally { this.schedule(); }
+      } finally { if(p) this.lastPoll=Date.now(); this.schedule(); }
     })().finally(()=>this.advancing=null);
     return this.advancing;
   }
