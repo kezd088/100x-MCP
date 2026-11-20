@@ -1,15 +1,23 @@
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { ConnectionError, connectionPath, protect, unprotect, saveProtected, saveConnection, readConnection, validateEndpoint, request } from './connection.mjs';
 
 const SYSTEM_NAMES = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
 const REAUTHORIZE = new Set(['100X_NOT_CONNECTED','100X_AUTH_FAILED','100X_INVALID_TOKEN','100X_INVALID_CONFIG','100X_CREDENTIAL_UNREADABLE','100X_INVALID_URL']);
 export function fitUnits(text,max) { let out=''; for(const char of String(text)) { if(out.length+char.length>max) break; out+=char; } return out; }
 
+export function openInBrowser(url,platform=process.platform) {
+  const opener=platform==='win32'?['rundll32.exe',['url.dll,FileProtocolHandler',url]]:platform==='darwin'?['/usr/bin/open',[url]]:null;
+  if(!opener) return false;
+  execFile(opener[0],opener[1],{windowsHide:true},()=>{}).unref();
+  return true;
+}
+
 export class DeviceConnection {
   constructor(env=process.env, dependencies={}) {
     this.env=env; this.fetch=dependencies.fetch || fetch; this.save=dependencies.save || saveConnection;
-    this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP');
+    this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP'); this.open=dependencies.open || (()=>false);
     this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null;
   }
   deviceName() { const system=' · '+(SYSTEM_NAMES[this.platform] || this.platform); return fitUnits(this.env.HUNDREDX_HOST || this.host,64-system.length)+system; }
@@ -39,7 +47,7 @@ export class DeviceConnection {
     if(this.flight) return this.flight;
     this.flight=(async()=>{
       await this.advancing?.catch(()=>{});
-      if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.publicState(); }
+      if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.opened(); }
       this.pending=null; this.state=null;
       try { const current=await this.status(); if(current.status==='connected') return current; } catch(error) { if(!REAUTHORIZE.has(error.code)) throw error; }
       const url=validateEndpoint(this.env.HUNDREDX_URL || 'https://100xspeed.app/api/mcp');
@@ -49,13 +57,17 @@ export class DeviceConnection {
       const local=['127.0.0.1','localhost','[::1]'].includes(new URL(url).hostname);
       if((!local && verification.origin!==new URL(url).origin) || (local && !['127.0.0.1','localhost','[::1]'].includes(verification.hostname))) throw new ConnectionError('100X_PROTOCOL_ERROR','授权页面地址无效。');
       this.pending={url,deviceCode,user_code:result.user_code,verification_uri:verification.href,expires_at:result.expires_at};
-      await this.persist(); this.state={status:'waiting'}; this.schedule(); return this.publicState();
+      await this.persist(); this.state={status:'waiting'}; this.schedule(); return this.opened();
     })().finally(()=>this.flight=null);
     return this.flight;
   }
   schedule() {
     if(this.timer || !this.pending) return;
     this.timer=setTimeout(()=>{ this.timer=null; void this.advance().catch(()=>{}); },this.delay || 3100); this.timer.unref();
+  }
+  opened() {
+    let opened=false; try { opened=this.open(this.pending.verification_uri,this.platform)===true; } catch {}
+    return {...this.publicState(),browser_opened:opened};
   }
   publicState() {
     return {...(this.state || {status:'waiting'}),...(this.pending?{user_code:this.pending.user_code,verification_uri:this.pending.verification_uri,expires_at:this.pending.expires_at,poll_after_ms:3100}:{})};
@@ -91,8 +103,10 @@ export class DeviceConnection {
     })().finally(()=>this.advancing=null);
     return this.advancing;
   }
-  async status() {
+  async status({wait=0}={}) {
     await this.load();
+    const deadline=Date.now()+wait;
+    while(this.pending && Date.now()<deadline) { await this.advance(); if(this.pending) await new Promise(resolve=>setTimeout(resolve,Math.min(this.delay || 3100,Math.max(0,deadline-Date.now())))); }
     if(this.pending) { this.schedule(); return this.publicState(); }
     if(['denied','expired'].includes(this.state?.status)) return this.publicState();
     const saved=await readConnection(this.env,this.protection);

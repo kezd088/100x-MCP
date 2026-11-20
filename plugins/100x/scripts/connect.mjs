@@ -1,16 +1,11 @@
-import { DeviceConnection } from './device-auth.mjs';
+import { DeviceConnection, openInBrowser } from './device-auth.mjs';
 import { ConnectionError } from './connection.mjs';
-import { execFile } from 'node:child_process';
-const connection=new DeviceConnection(process.env,{host:'Codex'});
+const connection=new DeviceConnection(process.env,{host:'Codex',open:openInBrowser});
 try {
   const state=await connection.connect();
   if(state.status==='connected') { console.log('100x 已连接，沿用本机已保存的凭据。'); process.exit(0); }
   console.log('100x · 请在网页核对连接码：'+state.user_code);
   console.log(state.verification_uri);
-  // Only a validated 100x / loopback URL reaches the system URL handler.
-  const opener=process.platform==='win32'?['rundll32.exe',['url.dll,FileProtocolHandler',state.verification_uri]]
-    :process.platform==='darwin'?['/usr/bin/open',[state.verification_uri]]:null;
-  if(opener) { const child=execFile(opener[0],opener[1],{windowsHide:true},()=>{}); child.unref(); }
   while(Date.parse(state.expires_at)>Date.now()) {
     await new Promise(resolve=>setTimeout(resolve,3200));
     const result=await connection.status();

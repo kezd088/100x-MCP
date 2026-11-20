@@ -33,3 +33,23 @@ test('lost acknowledgement retries the saved grant without requesting another to
   await c.advance();assert.equal(c.publicState().status,'offline');assert.equal(saves,1);
   await c.advance();assert.equal(c.publicState().status,'connected');assert.equal(claims,1);assert.equal(acks,2);assert.equal(saves,2);clearTimeout(c.timer);
 });
+test('connect opens the authorization page itself, again when the same request is resumed',async()=>{
+  const opened=[];const c=client(async()=>response({status:'pending'}));c.open=url=>{opened.push(url);return true;};
+  const state=await c.connect();assert.equal(state.browser_opened,true);assert.equal(state.user_code,'ABC1234567');
+  assert.equal((await c.connect()).browser_opened,true);assert.deepEqual(opened,[c.pending.verification_uri,c.pending.verification_uri]);clearTimeout(c.timer);
+});
+test('without a browser the link is still returned and marked unopened',async()=>{
+  const c=client(async()=>response({status:'pending'}));c.open=()=>{throw new Error('no opener');};
+  const state=await c.connect();assert.equal(state.browser_opened,false);assert.ok(state.verification_uri);clearTimeout(c.timer);
+});
+test('status waits for the approval and returns connected without another tool call',async()=>{
+  let claims=0;const c=client(async url=>{
+    if(String(url).endsWith('/token')) {claims++;return response(claims<2?{status:'pending'}:{status:'approved',access_token:'100x_'+'b'.repeat(48)});}
+    return response({status:'connected'});
+  });c.delay=20;c.env={HUNDREDX_URL:'http://127.0.0.1:4188/api/mcp',HUNDREDX_TOKEN:'100x_'+'b'.repeat(48)};
+  const state=await c.status({wait:5000});assert.equal(state.status,'connected');assert.equal(claims,2);clearTimeout(c.timer);
+});
+test('status stops waiting at the deadline and reports waiting',async()=>{
+  const c=client(async()=>response({status:'pending'}));c.delay=20;
+  const started=Date.now();const state=await c.status({wait:120});assert.equal(state.status,'waiting');assert.ok(Date.now()-started<1000);clearTimeout(c.timer);
+});

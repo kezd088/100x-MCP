@@ -1,5 +1,18 @@
 # 验证记录
 
+## 0.3.7 · 连接和 Codex 一样顺
+
+改动：
+- `100x_connect` 自己用系统浏览器打开授权页，返回 `browser_opened`。以前只有安装器 `--connect` 会开，聊天里要用户自己点链接。
+- `100x_connection_status` 在授权进行中最多等 25 秒，用户点了允许就返回 `connected`，Claude 不用等用户回话。
+- 扩展包带上 SKILL。桥接把 SKILL 正文作为 MCP `instructions` 发给宿主，Claude 桌面端没有 skill 机制，现在也知道怎么连、怎么报价和生成。SKILL 是唯一来源。
+
+2026-11-20 在 Mac 上实际跑过：
+
+- `node --test tests/*.test.mjs`：42 项通过，4 项跳过。新加的测试：自动打开浏览器、续用同一请求时再打开、没有浏览器时返回链接、等待期间批准就返回 connected、到时限返回 waiting、`instructions` 等于 SKILL 正文。
+- `mcpb validate` 通过，包 26.6 KB、9 个文件。解包后用最小环境启动：回 0.3.7、11 个工具、`instructions` 1715 字。
+- 未验证：在 Claude 桌面端里真实安装和授权（本机 Claude 桌面端没登录）。
+
 ## 0.3.6 · Claude 桌面端扩展
 
 新增：`plugins/100x/manifest.json`，用 `npm run pack:desktop`（`@anthropic-ai/mcpb` 2.1.2）把桥接打成 `100x.mcpb`，Claude 桌面端双击安装，用它自带的 Node 跑同一个 `scripts/bridge.mjs`。`.mcpbignore` 去掉 SKILL、Codex/Claude Code 清单和安装脚本，包里只有图标、清单和 5 个运行文件，23 KB。Claude 桌面端上报的 `clientInfo` 是 `{"name":"claude-ai","version":"0.1.0"}`，没有 `title`，所以扩展用环境变量 `HUNDREDX_HOST=Claude` 定设备名，授权页显示「Claude · macOS」，不显示 `claude-ai`。

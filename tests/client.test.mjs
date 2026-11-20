@@ -55,6 +55,8 @@ test('fresh stdio starts without credentials and exposes actionable connection s
   try {
     const init = await call('initialize', { protocolVersion: '2025-03-26' });
     assert.equal(init.result.serverInfo.name, '100x');
+    const skill = await readFile(resolve(plugin, 'skills/100x-creative/SKILL.md'), 'utf8');
+    assert.ok(init.result.instructions.includes('100x_connection_status') && skill.includes(init.result.instructions), 'hosts without skills, like Claude Desktop, get the skill body as server instructions');
     const listed = (await call('tools/list')).result.tools;
     assert.equal(listed.length, 11);
     assert.ok(listed.some(tool => tool.name === '100x_push_storyboard'), 'the storyboard push tool is exposed');
