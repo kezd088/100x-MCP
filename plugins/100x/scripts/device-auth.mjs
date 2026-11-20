@@ -39,7 +39,8 @@ export class DeviceConnection {
     if(this.flight) return this.flight;
     this.flight=(async()=>{
       if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.publicState(); }
-      if(!this.pending) { try { const current=await this.status(); if(current.status==='connected') return current; } catch(error) { if(!REAUTHORIZE.has(error.code)) throw error; } }
+      this.pending=null; this.state=null;
+      try { const current=await this.status(); if(current.status==='connected') return current; } catch(error) { if(!REAUTHORIZE.has(error.code)) throw error; }
       const url=validateEndpoint(this.env.HUNDREDX_URL || 'https://100xspeed.app/api/mcp');
       const deviceCode=randomBytes(32).toString('hex');
       const result=await this.call(url,'device',{body:{device_code:deviceCode,device_name:this.deviceName()}});

@@ -264,3 +264,18 @@ test('device names keep the system suffix within the 64 UTF-16 unit server limit
   assert.ok(name.length <= 64 && name.endsWith(' · Windows'), name);
   assert.equal(name.isWellFormed(), true);
 });
+
+test('after a denied or expired attempt, connecting again still reuses a credential another host saved meanwhile', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'stale.json') }, {
+    host: 'Codex',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({ status: 'connected' }); },
+  });
+  connection.loaded = true;
+  for (const stale of [{ state: { status: 'denied' }, pending: null }, { state: null, pending: { url: 'https://100xspeed.app/api/mcp', deviceCode: 'a'.repeat(64), user_code: 'OLD1234567', expires_at: new Date(Date.now() - 1000).toISOString() } }]) {
+    Object.assign(connection, stale);
+    assert.equal((await connection.connect()).status, 'connected');
+  }
+  assert.deepEqual(paths, ['/api/mcp/connection', '/api/mcp/connection']);
+});
