@@ -1,4 +1,4 @@
-import { DeviceConnection } from './device-auth.mjs';
+import { DeviceConnection, fitUnits } from './device-auth.mjs';
 import { readFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { ConnectionError, readConnection, request } from './connection.mjs';
@@ -25,8 +25,8 @@ async function handle(line) {
   if (method === 'initialize') {
     const reported = params?.clientInfo;
     if (typeof reported?.name === 'string' && reported.name.trim()) {
-      clientInfo = { name: reported.name.trim().slice(0, 100), ...(typeof reported.version === 'string' ? { version: reported.version.slice(0, 80) } : {}) };
-      deviceConnection.host = [...((typeof reported.title === 'string' && reported.title.trim()) || clientInfo.name)].slice(0, 40).join('');
+      clientInfo = { name: fitUnits(reported.name.trim(), 100), ...(typeof reported.version === 'string' ? { version: fitUnits(reported.version, 80) } : {}) };
+      deviceConnection.host = (typeof reported.title === 'string' && reported.title.trim()) || clientInfo.name;
     }
     return output(id, {
       protocolVersion: ['2025-03-26', '2025-06-18', '2024-11-05'].includes(params?.protocolVersion) ? params.protocolVersion : '2025-03-26',

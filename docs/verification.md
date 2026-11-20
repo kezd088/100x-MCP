@@ -11,6 +11,9 @@
 - `claude --plugin-dir plugins/100x -p …`：列出 11 个 `mcp__plugin_100x_100x__100x_*` 工具和 `100x:100x-creative` skill；无凭据时 `100x_connection_status` 返回 `100X_NOT_CONNECTED`。
 - Claude Code 上报的 `clientInfo` 是 `{"name":"claude-code","title":"Claude Code"}`，100x 网页已有这个别名的图标。
 - 已连上时再调 `100x_connect` 直接返回已连接，不发新授权：Codex 连过的电脑在 Claude Code 里再发「连接 100x」，不会换掉凭据、丢掉旧任务。
+- 查连接时遇到网络或服务错误，`100x_connect` 报错不重新授权；只有未连接或凭据失效才发新授权。安装器 `--connect` 遇到已连接直接成功退出。
+- 设备名按服务端 64 个 UTF-16 码元的上限裁宿主名，系统后缀保留；客户端名和版本按完整字符裁剪。
+- 已知限制：旧版（0.3.4 及更早）Codex 插件不上报来源，和 0.3.5 的 Claude Code 共用一份凭据时，Codex 的任务可能显示成 Claude Code。Codex 升级到 0.3.5 就没有这个问题。
 - 未验证：Claude Code 里走完真实网页授权和真实生成。
 
 

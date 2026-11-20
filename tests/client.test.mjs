@@ -245,3 +245,22 @@ test('connecting again while already connected keeps the saved credential instea
   assert.equal(state.status, 'connected');
   assert.deepEqual(paths, ['/api/mcp/connection']);
 });
+
+test('a transient connection-check failure does not start a new authorization over the saved credential', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'transient.json') }, {
+    host: 'Claude Code',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({}, { status: 503 }); },
+  });
+  await assert.rejects(connection.connect(), { code: '100X_SERVICE_UNAVAILABLE' });
+  assert.deepEqual(paths, ['/api/mcp/connection']);
+});
+
+test('device names keep the system suffix within the 64 UTF-16 unit server limit', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const connection = new DeviceConnection({}, { host: '🎬'.repeat(40), protection: { platform: 'win32' } });
+  const name = connection.deviceName();
+  assert.ok(name.length <= 64 && name.endsWith(' · Windows'), name);
+  assert.equal(name.isWellFormed(), true);
+});
