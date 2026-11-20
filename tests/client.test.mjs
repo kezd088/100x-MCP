@@ -233,3 +233,15 @@ test('Codex and Claude Code manifests ship the same version and the same stdio b
   assert.equal(marketplace.name, (await read('.agents/plugins/marketplace.json')).name);
   assert.deepEqual(marketplace.plugins.map(item => [item.name, item.source]), [['100x', './plugins/100x']]);
 });
+
+test('connecting again while already connected keeps the saved credential instead of starting a new authorization', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'reconnect.json') }, {
+    host: 'Claude Code',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({ status: 'connected', device_id: 'mcp_cred_1' }); },
+  });
+  const state = await connection.connect();
+  assert.equal(state.status, 'connected');
+  assert.deepEqual(paths, ['/api/mcp/connection']);
+});

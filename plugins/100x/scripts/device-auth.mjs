@@ -7,7 +7,7 @@ const SYSTEM_NAMES = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
 export class DeviceConnection {
   constructor(env=process.env, dependencies={}) {
     this.env=env; this.fetch=dependencies.fetch || fetch; this.save=dependencies.save || saveConnection;
-    this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP').slice(0,60);
+    this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP');
     this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null;
   }
   get platform() { return this.protection.platform || process.platform; }
@@ -36,6 +36,7 @@ export class DeviceConnection {
     if(this.flight) return this.flight;
     this.flight=(async()=>{
       if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.publicState(); }
+      if(!this.pending) { try { const current=await this.status(); if(current.status==='connected') return current; } catch {} }
       const url=validateEndpoint(this.env.HUNDREDX_URL || 'https://100xspeed.app/api/mcp');
       const deviceCode=randomBytes(32).toString('hex');
       const result=await this.call(url,'device',{body:{device_code:deviceCode,device_name:this.host+' · '+(SYSTEM_NAMES[this.platform] || this.platform)}});

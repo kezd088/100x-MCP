@@ -26,7 +26,7 @@ async function handle(line) {
     const reported = params?.clientInfo;
     if (typeof reported?.name === 'string' && reported.name.trim()) {
       clientInfo = { name: reported.name.trim().slice(0, 100), ...(typeof reported.version === 'string' ? { version: reported.version.slice(0, 80) } : {}) };
-      deviceConnection.host = ((typeof reported.title === 'string' && reported.title.trim()) || clientInfo.name).slice(0, 60);
+      deviceConnection.host = [...((typeof reported.title === 'string' && reported.title.trim()) || clientInfo.name)].slice(0, 40).join('');
     }
     return output(id, {
       protocolVersion: ['2025-03-26', '2025-06-18', '2024-11-05'].includes(params?.protocolVersion) ? params.protocolVersion : '2025-03-26',

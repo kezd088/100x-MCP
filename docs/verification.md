@@ -2,7 +2,7 @@
 
 ## 0.3.5 · Claude Code 插件
 
-新增：仓库根目录 `.claude-plugin/marketplace.json` 和 `plugins/100x/.claude-plugin/plugin.json`，Claude Code 用原生插件命令安装同一个插件目录。Claude Code 只展开 `${CLAUDE_PLUGIN_ROOT}`，不认 Codex 的 `${PLUGIN_ROOT}`，所以 Claude 清单里内联 `mcpServers`，内联后不再读 `.mcp.json`。桥接把 `initialize` 里的客户端名转给服务端（`_meta["io.modelcontextprotocol/clientInfo"]`），网页「来源 App」能认出 Claude Code 和 Codex；授权设备名也按宿主写，比如「Claude Code · macOS」。
+新增：仓库根目录 `.claude-plugin/marketplace.json` 和 `plugins/100x/.claude-plugin/plugin.json`，Claude Code 用原生插件命令安装同一个插件目录。Claude Code 只展开 `${CLAUDE_PLUGIN_ROOT}`，不认 Codex 的 `${PLUGIN_ROOT}`，所以 Claude 清单里内联同名 `100x` 的 `mcpServers`，覆盖 `.mcp.json` 里那份。桥接把 `initialize` 里的客户端名转给服务端（`_meta["io.modelcontextprotocol/clientInfo"]`），网页「来源 App」能认出 Claude Code 和 Codex；授权设备名也按宿主写，比如「Claude Code · macOS」。
 
 2026-11-20 在 Mac 上实际跑过：
 
@@ -10,6 +10,7 @@
 - Claude Code 2.1.328 用隔离的 `CLAUDE_CONFIG_DIR`：`claude plugin marketplace add <本地仓库>`、`claude plugin install 100x@100x` 成功，`claude mcp list` 只有一个 `plugin:100x:100x` 且 Connected。没加内联 `mcpServers` 前它读 `.mcp.json`，报 `CONNECTION_CLOSED`。
 - `claude --plugin-dir plugins/100x -p …`：列出 11 个 `mcp__plugin_100x_100x__100x_*` 工具和 `100x:100x-creative` skill；无凭据时 `100x_connection_status` 返回 `100X_NOT_CONNECTED`。
 - Claude Code 上报的 `clientInfo` 是 `{"name":"claude-code","title":"Claude Code"}`，100x 网页已有这个别名的图标。
+- 已连上时再调 `100x_connect` 直接返回已连接，不发新授权：Codex 连过的电脑在 Claude Code 里再发「连接 100x」，不会换掉凭据、丢掉旧任务。
 - 未验证：Claude Code 里走完真实网页授权和真实生成。
 
 
