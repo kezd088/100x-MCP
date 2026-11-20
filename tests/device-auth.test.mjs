@@ -84,3 +84,17 @@ test('the interval counts from when the previous reply arrived',async()=>{
   await c.status({wait:400});clearTimeout(c.timer);
   assert.ok(sent.length>=2);assert.ok(sent[1]-sent[0]>=215,String(sent[1]-sent[0]));
 });
+test('an expiry stays visible when clearing the local request fails',async()=>{
+  const c=client(async()=>{throw new Error('must not call');});c.pending.expires_at=new Date(0).toISOString();c.persist=async()=>{throw new Error('disk full');};
+  await c.advance();clearTimeout(c.timer);assert.equal(c.publicState().status,'expired');assert.equal((await c.status()).status,'expired');
+});
+test('status returns soon after the background poll connects',async()=>{
+  let claims=0;const c=client(async url=>String(url).endsWith('/token')?(++claims>1?response({status:'approved',access_token:'100x_'+'b'.repeat(48)}):response({status:'pending'})):response({status:'connected'}));c.delay=1000;
+  await c.advance();const started=Date.now();const waiting=c.status({wait:5000});
+  await new Promise(r=>setTimeout(r,1050));await c.advance();
+  assert.equal((await waiting).status,'connected');assert.ok(Date.now()-started<1500,String(Date.now()-started));clearTimeout(c.timer);
+});
+test('the link and code come back even if the request ends while the browser opens',async()=>{
+  const c=client(async()=>response({status:'pending'}));c.open=async()=>{c.pending=null;c.state={status:'expired'};return false;};
+  const state=await c.connect();assert.equal(state.browser_opened,false);assert.ok(state.verification_uri);assert.equal(state.user_code,'ABC1234567');
+});

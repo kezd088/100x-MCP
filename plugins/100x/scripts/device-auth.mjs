@@ -67,9 +67,9 @@ export class DeviceConnection {
     this.timer=setTimeout(()=>{ this.timer=null; if(this.lastPoll+interval>Date.now()) return this.schedule(); void this.advance().catch(()=>{}); },Math.max(0,due)); this.timer.unref();
   }
   async opened() {
-    const url=this.pending.verification_uri;
-    let opened=false; try { opened=await this.open(url,this.platform)===true; } catch {}
-    return {...this.publicState(),browser_opened:opened};
+    const state=this.publicState();
+    let opened=false; try { opened=await this.open(state.verification_uri,this.platform)===true; } catch {}
+    return {...state,browser_opened:opened};
   }
   publicState() {
     return {...(this.state || {status:'waiting'}),...(this.pending?{user_code:this.pending.user_code,verification_uri:this.pending.verification_uri,expires_at:this.pending.expires_at,poll_after_ms:3100}:{})};
@@ -98,6 +98,7 @@ export class DeviceConnection {
         await this.call(p.url,'ack',{body:{saved:true},token:p.token});
         this.state={status:'connected'}; this.pending=null; await this.persist();
       } catch(error) {
+        if(!this.pending && ['expired','denied','connected'].includes(this.state?.status)) return;
         const code=error.code || '100X_SAVE_FAILED';
         if(['expired_token','access_denied','100X_AUTH_FAILED'].includes(code)) { this.pending=null; this.state={status:'expired',message:'授权已失效，请重新连接。'}; await this.persist(); }
         else if(code==='slow_down') this.delay=Math.min(15000,(this.delay || 3100)+3000);
@@ -109,7 +110,7 @@ export class DeviceConnection {
   async waitForDecision(deadline) {
     while(this.pending && Date.now()<deadline) {
       const due=this.lastPoll+(this.delay || 3100)-Date.now();
-      if(due>0) { await sleep(Math.min(due,deadline-Date.now())); continue; }
+      if(due>0) { await sleep(Math.min(due,250,deadline-Date.now())); continue; }
       await this.advance();
     }
   }
