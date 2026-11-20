@@ -38,7 +38,7 @@ export class DeviceConnection {
     await this.load();
     if(this.flight) return this.flight;
     this.flight=(async()=>{
-      await this.advancing;
+      await this.advancing?.catch(()=>{});
       if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.publicState(); }
       this.pending=null; this.state=null;
       try { const current=await this.status(); if(current.status==='connected') return current; } catch(error) { if(!REAUTHORIZE.has(error.code)) throw error; }
