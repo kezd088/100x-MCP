@@ -68,6 +68,7 @@ export class DeviceConnection {
         const p=this.pending;
         if(!p.token) {
           const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
+          if(this.pending!==p) return;
           if(result.status==='denied') { this.state={status:'denied',message:'本次授权已取消。'}; this.pending=null; await this.persist(); return; }
           if(result.status==='pending') { this.state={status:'waiting'}; return; }
           if(result.status==='connected') {

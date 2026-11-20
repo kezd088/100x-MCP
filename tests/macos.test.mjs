@@ -113,3 +113,32 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   assert.equal(pendingText.includes(token), false);
 });
 
+
+test('另一个宿主重存凭据后，本进程读到的是新令牌，不沿用缓存的旧令牌', async () => {
+  const { env, options } = mac();
+  const first = '100x_' + randomBytes(24).toString('hex');
+  const second = '100x_' + randomBytes(24).toString('hex');
+  await saveConnection({ url, token: first }, env, options);
+  assert.equal((await readConnection(env, options)).token, first);
+  await saveConnection({ url, token: second }, env, options);
+  assert.equal((await readConnection(env, options)).token, second);
+});
+
+test('待授权请求在轮询途中被换掉后，晚到的授权结果不写凭据', async () => {
+  const { env, options } = mac();
+  let release;
+  const saves = [];
+  const connection = new DeviceConnection(env, {
+    protection: options, host: 'Codex', save: async value => { saves.push(value); },
+    fetch: async () => { await new Promise(resolve => { release = resolve; }); return Response.json({ status: 'approved', access_token: '100x_' + randomBytes(24).toString('hex') }); },
+  });
+  connection.loaded = true;
+  connection.pending = { url, deviceCode: 'b'.repeat(64), user_code: '{{ACCOUNT_svtvo1i1}}', expires_at: new Date(Date.now() + 60000).toISOString() };
+  const polling = connection.advance();
+  while (!release) await new Promise(resolve => setTimeout(resolve, 5));
+  connection.pending = null;
+  release();
+  await polling;
+  clearTimeout(connection.timer);
+  assert.deepEqual(saves, []);
+});
