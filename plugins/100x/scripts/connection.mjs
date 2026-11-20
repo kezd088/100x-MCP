@@ -2,7 +2,7 @@ import { readFile, mkdir, writeFile, rename, chmod } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 export class ConnectionError extends Error {
   constructor(code, message) { super(message); this.code = code; }
@@ -127,7 +127,7 @@ export async function unprotect(cipher, options = {}) {
   return target === 'win32' ? dpapiUnprotect(cipher) : keychainUnprotect(cipher, options);
 }
 
-let cachedCipher;
+let cachedRecord;
 let cachedToken;
 export async function readConnection(env = process.env, options = {}) {
   if (env.HUNDREDX_TOKEN) {
@@ -135,14 +135,14 @@ export async function readConnection(env = process.env, options = {}) {
     return { url: validateEndpoint(env.HUNDREDX_URL), token: checkToken(env.HUNDREDX_TOKEN) };
   }
   const target = options.platform || process.platform;
-  let record;
-  try { record = JSON.parse(await readFile(connectionPath(env, target), 'utf8')); }
+  let text, record;
+  try { text = await readFile(connectionPath(env, target), 'utf8'); record = JSON.parse(text); }
   catch { throw new ConnectionError('100X_NOT_CONNECTED', '100x 尚未连接。调用 100x_connect，在网页确认授权即可。'); }
   const url = validateEndpoint(record.url);
   if (record.version !== 1 || record.protection !== protectionFor(target) || typeof record.token !== 'string') {
     throw new ConnectionError('100X_INVALID_CONFIG', '100x 连接配置无效，请重新运行连接脚本。');
   }
-  if (cachedCipher !== record.token) { cachedToken = checkToken(await unprotect(record.token, { ...options, platform: target })); cachedCipher = record.token; }
+  if (cachedRecord !== text) { cachedToken = checkToken(await unprotect(record.token, { ...options, platform: target })); cachedRecord = text; }
   return { url, token: cachedToken };
 }
 
@@ -193,7 +193,7 @@ export async function saveConnection({url,token}, env=process.env, options={}) {
   const target = options.platform || process.platform;
   const path = connectionPath(env, target);
   const protection = { ...options, platform: target, env, path, scope: 'connection' };
-  const record={version:1,protection:protectionFor(target),url:validateEndpoint(url),token:await protect(checkToken(token),protection)};
+  const record={version:1,protection:protectionFor(target),url:validateEndpoint(url),token:await protect(checkToken(token),protection),revision:randomUUID()};
   await saveProtected(path,record,{...options,platform:target});
   // Confirm the durable file is decryptable before acknowledging to the server.
   await readConnection({...env,HUNDREDX_TOKEN:''},{...options,platform:target});

@@ -1,0 +1,18 @@
+{
+  "name": "100x",
+  "owner": {
+    "name": "100x"
+  },
+  "metadata": {
+    "description": "100x 图片与视频生成插件"
+  },
+  "plugins": [
+    {
+      "name": "100x",
+      "source": "./plugins/100x",
+      "description": "在 Claude Code 中使用 100x 生成图片与视频，报价、异步任务和素材统一管理。",
+      "category": "productivity",
+      "homepage": "https://100xspeed.app/mcp/"
+    }
+  ]
+}

@@ -1,9 +1,10 @@
 import { DeviceConnection } from './device-auth.mjs';
 import { ConnectionError } from './connection.mjs';
 import { execFile } from 'node:child_process';
-const connection=new DeviceConnection();
+const connection=new DeviceConnection(process.env,{host:'Codex'});
 try {
   const state=await connection.connect();
+  if(state.status==='connected') { console.log('100x 已连接，沿用本机已保存的凭据。'); process.exit(0); }
   console.log('100x · 请在网页核对连接码：'+state.user_code);
   console.log(state.verification_uri);
   // Only a validated 100x / loopback URL reaches the system URL handler.

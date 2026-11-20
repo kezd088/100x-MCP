@@ -196,3 +196,86 @@ test('media download from current 100x endpoint cannot overwrite files', async (
     assert.equal(result.code, 1); assert.equal(await readFile(saved, 'utf8'), 'keep'); assert.match(result.stderr, /已存在/);
   } finally { server.closeAllConnections(); server.close(); }
 });
+
+test('stdio bridge reports the host app to 100x on every forwarded tool call', async () => {
+  const seen = [];
+  const { server, url } = await start(async (req, res) => {
+    let text = ''; for await (const c of req) text += c;
+    const body = JSON.parse(text); seen.push(body);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: 'ok' }] } }));
+  });
+  const child = spawn(process.execPath, [resolve(plugin, 'scripts/bridge.mjs')], { cwd: folder, env: { ...process.env, HUNDREDX_URL: url, HUNDREDX_TOKEN: token }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const pending = new Map();
+  createInterface({ input: child.stdout }).on('line', line => { const m = JSON.parse(line); pending.get(m.id)?.(m); });
+  const call = (id, method, params) => new Promise((res, rej) => {
+    const timer = setTimeout(() => rej(new Error('stdio timeout')), 5000);
+    pending.set(id, r => { clearTimeout(timer); res(r); });
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+  });
+  try {
+    await call(1, 'initialize', { protocolVersion: '2025-06-18', clientInfo: { name: 'claude-code', title: 'Claude Code', version: '2.1.328' } });
+    const reply = await call(2, 'tools/call', { name: '100x_get_balance', arguments: {} });
+    assert.equal(reply.result.content[0].text, 'ok');
+    assert.deepEqual(seen[0].params._meta, { 'io.modelcontextprotocol/clientInfo': { name: 'claude-code', version: '2.1.328' } });
+    assert.deepEqual(seen[0].params.arguments, {});
+  } finally { child.kill(); server.close(); }
+});
+
+test('Codex and Claude Code manifests ship the same version and the same stdio bridge', async () => {
+  const read = async path => JSON.parse(await readFile(resolve(root, path), 'utf8'));
+  const versions = await Promise.all(['package.json', 'plugins/100x/plugin.json', 'plugins/100x/.codex-plugin/plugin.json', 'plugins/100x/.claude-plugin/plugin.json'].map(async path => (await read(path)).version));
+  assert.equal(new Set(versions).size, 1, versions.join(', '));
+  const claude = (await read('plugins/100x/.claude-plugin/plugin.json')).mcpServers['100x'];
+  const codex = (await read('plugins/100x/.mcp.json')).mcpServers['100x'];
+  assert.deepEqual(claude.args, codex.args.map(arg => arg.replace('${PLUGIN_ROOT}', '${CLAUDE_PLUGIN_ROOT}')));
+  const marketplace = await read('.claude-plugin/marketplace.json');
+  assert.equal(marketplace.name, (await read('.agents/plugins/marketplace.json')).name);
+  assert.deepEqual(marketplace.plugins.map(item => [item.name, item.source]), [['100x', './plugins/100x']]);
+});
+
+test('connecting again while already connected keeps the saved credential instead of starting a new authorization', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'reconnect.json') }, {
+    host: 'Claude Code',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({ status: 'connected', device_id: 'mcp_cred_1' }); },
+  });
+  const state = await connection.connect();
+  assert.equal(state.status, 'connected');
+  assert.deepEqual(paths, ['/api/mcp/connection']);
+});
+
+test('a transient connection-check failure does not start a new authorization over the saved credential', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'transient.json') }, {
+    host: 'Claude Code',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({}, { status: 503 }); },
+  });
+  await assert.rejects(connection.connect(), { code: '100X_SERVICE_UNAVAILABLE' });
+  assert.deepEqual(paths, ['/api/mcp/connection']);
+});
+
+test('device names keep the system suffix within the 64 UTF-16 unit server limit', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const connection = new DeviceConnection({}, { host: '🎬'.repeat(40), protection: { platform: 'win32' } });
+  const name = connection.deviceName();
+  assert.ok(name.length <= 64 && name.endsWith(' · Windows'), name);
+  assert.equal(name.isWellFormed(), true);
+});
+
+test('after a denied or expired attempt, connecting again still reuses a credential another host saved meanwhile', async () => {
+  const { DeviceConnection } = await import('../plugins/100x/scripts/device-auth.mjs');
+  const paths = [];
+  const connection = new DeviceConnection({ HUNDREDX_URL: 'https://100xspeed.app/api/mcp', HUNDREDX_TOKEN: '100x_' + randomBytes(24).toString('hex'), HUNDREDX_CONFIG_PATH: resolve(folder, 'stale.json') }, {
+    host: 'Codex',
+    fetch: async endpoint => { paths.push(new URL(endpoint).pathname); return Response.json({ status: 'connected' }); },
+  });
+  connection.loaded = true;
+  for (const stale of [{ state: { status: 'denied' }, pending: null }, { state: null, pending: { url: 'https://100xspeed.app/api/mcp', deviceCode: 'a'.repeat(64), user_code: 'OLD1234567', expires_at: new Date(Date.now() - 1000).toISOString() } }]) {
+    Object.assign(connection, stale);
+    assert.equal((await connection.connect()).status, 'connected');
+  }
+  assert.deepEqual(paths, ['/api/mcp/connection', '/api/mcp/connection']);
+});

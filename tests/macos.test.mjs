@@ -86,7 +86,7 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   const token = '100x_' + randomBytes(24).toString('hex');
   const requests = [];
   const connection = new DeviceConnection(env, {
-    protection: options,
+    protection: options, host: 'Claude Code',
     fetch: async (endpoint, init) => {
       const body = init.body ? JSON.parse(init.body) : null;
       requests.push({ path: new URL(endpoint).pathname, body });
@@ -97,7 +97,7 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   });
   const state = await connection.connect();
   assert.equal(state.user_code, 'MAC1234567');
-  assert.equal(requests[0].body.device_name, 'Codex · macOS');
+  assert.equal(requests[0].body.device_name, 'Claude Code · macOS');
 
   await connection.advance();
   clearTimeout(connection.timer);
@@ -113,3 +113,71 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   assert.equal(pendingText.includes(token), false);
 });
 
+
+test('另一个宿主重存凭据后，本进程读到的是新令牌，不沿用缓存的旧令牌', async () => {
+  const { env, options } = mac();
+  const first = '100x_' + randomBytes(24).toString('hex');
+  const second = '100x_' + randomBytes(24).toString('hex');
+  await saveConnection({ url, token: first }, env, options);
+  assert.equal((await readConnection(env, options)).token, first);
+  await saveConnection({ url, token: second }, env, options);
+  assert.equal((await readConnection(env, options)).token, second);
+});
+
+async function raceReconnect(holdPath, tokenReply) {
+  const { env, options } = mac();
+  let release;
+  const connection = new DeviceConnection(env, {
+    protection: options, host: 'Codex', save: async () => {},
+    fetch: async endpoint => {
+      const path = new URL(endpoint).pathname;
+      if (path.endsWith(holdPath)) {
+        await new Promise(resolve => { release = resolve; });
+        for (let i = 0; i < 60 && connection.pending?.user_code !== 'NEW1234567'; i++) await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      if (path.endsWith('/token')) return tokenReply();
+      if (path.endsWith('/ack')) return Response.json({ status: 'connected' });
+      return Response.json({ user_code: 'NEW1234567', verification_uri: 'https://100xspeed.app/?connect_100x=NEW1234567', expires_at: new Date(Date.now() + 600000).toISOString() });
+    },
+  });
+  connection.loaded = true;
+  connection.persist = async () => {};
+  connection.pending = { url, deviceCode: 'c'.repeat(64), user_code: 'OLD0000000', expires_at: new Date(Date.now() + 60000).toISOString() };
+  const polling = connection.advance();
+  while (!release) await new Promise(resolve => setTimeout(resolve, 5));
+  connection.pending.expires_at = new Date(Date.now() - 1000).toISOString();
+  const reconnect = connection.connect();
+  release();
+  await polling;
+  const state = await reconnect;
+  clearTimeout(connection.timer);
+  assert.equal(state.user_code, 'NEW1234567');
+  assert.equal(connection.pending?.user_code, 'NEW1234567');
+}
+
+test('旧授权轮询途中过期，晚到的失效结果不清掉新发起的授权', () => raceReconnect('/token', () => Response.json({ code: 'expired_token' }, { status: 410 })));
+test('旧授权已批准、等回执时过期，回执晚到不清掉新发起的授权', () => raceReconnect('/ack', () => Response.json({ status: 'approved', access_token: '100x_' + randomBytes(24).toString('hex') })));
+
+test('旧轮询清理时写盘失败，本次重连照样拿到新授权码', async () => {
+  const { env, options } = mac();
+  let release, failOnce = true;
+  const connection = new DeviceConnection(env, {
+    protection: options, host: 'Codex',
+    fetch: async endpoint => {
+      const path = new URL(endpoint).pathname;
+      if (path.endsWith('/token')) { await new Promise(resolve => { release = resolve; }); return Response.json({ code: 'expired_token' }, { status: 410 }); }
+      return Response.json({ user_code: 'NEW1234567', verification_uri: 'https://100xspeed.app/?connect_100x=NEW1234567', expires_at: new Date(Date.now() + 600000).toISOString() });
+    },
+  });
+  connection.loaded = true;
+  connection.persist = async () => { if (failOnce) { failOnce = false; throw new Error('disk full'); } };
+  connection.pending = { url, deviceCode: 'c'.repeat(64), user_code: 'OLD0000000', expires_at: new Date(Date.now() + 60000).toISOString() };
+  const polling = connection.advance().catch(() => {});
+  while (!release) await new Promise(resolve => setTimeout(resolve, 5));
+  const reconnect = connection.connect();
+  release();
+  await polling;
+  const state = await reconnect;
+  clearTimeout(connection.timer);
+  assert.equal(state.user_code, 'NEW1234567');
+});

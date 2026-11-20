@@ -1,12 +1,12 @@
-# 100x for Codex Desktop
+# 100x for Codex Desktop & Claude Code
 
 <p align="center">
   <img src="./assets/readme/100x-codex-hero.svg" width="100%" alt="100x for Codex Desktop - 官方插件与创作 SKILL 概览">
 </p>
 
-让 Codex 对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
+让 Codex 和 Claude Code 对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
 
-**版本**：v0.3.4 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
+**版本**：v0.3.5 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
 
 ---
 
@@ -20,7 +20,18 @@
 请阅读 https://github.com/kezd088/100x-MCP/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
 ```
 
-### 备选：一键脚本安装
+### Claude Code
+
+在终端运行两条命令（Claude Code 桌面端的 Code 页签共用同一份插件）：
+
+```bash
+claude plugin marketplace add kezd088/100x-MCP
+claude plugin install 100x@100x
+```
+
+装好后新开一个 Claude Code 会话（已开的会话运行 `/reload-plugins`），发送「连接 100x」，打开返回的授权页核对连接码并允许。之后用 `/100x:100x-creative` 或直接说需求。更新：`claude plugin marketplace update 100x` 后 `claude plugin update 100x@100x`。
+
+### 备选：一键脚本安装（Codex）
 
 **Windows PowerShell**（打开网页登录授权，凭据由 Windows DPAPI 本地加密保存）：
 
