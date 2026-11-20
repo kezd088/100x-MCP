@@ -114,6 +114,21 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
 });
 
 
+test('Claude 桌面端按扩展声明的宿主名起设备名，不用它上报的 claude-ai', async () => {
+  const { env, options } = mac();
+  const bodies = [];
+  const connection = new DeviceConnection({ ...env, HUNDREDX_HOST: 'Claude' }, {
+    protection: options, host: 'claude-ai',
+    fetch: async (endpoint, init) => {
+      if (String(endpoint).endsWith('/device')) { bodies.push(JSON.parse(init.body)); return Response.json({ user_code: 'DSK1234567', verification_uri: 'https://100xspeed.app/?connect_100x=DSK1234567', expires_at: new Date(Date.now() + 600000).toISOString() }); }
+      return Response.json({ status: 'authorization_pending' });
+    },
+  });
+  await connection.connect();
+  clearTimeout(connection.timer);
+  assert.equal(bodies[0].device_name, 'Claude · macOS');
+});
+
 test('另一个宿主重存凭据后，本进程读到的是新令牌，不沿用缓存的旧令牌', async () => {
   const { env, options } = mac();
   const first = '100x_' + randomBytes(24).toString('hex');

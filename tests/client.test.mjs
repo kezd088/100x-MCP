@@ -222,13 +222,16 @@ test('stdio bridge reports the host app to 100x on every forwarded tool call', a
   } finally { child.kill(); server.close(); }
 });
 
-test('Codex and Claude Code manifests ship the same version and the same stdio bridge', async () => {
+test('Codex, Claude Code and Claude Desktop manifests ship the same version and the same stdio bridge', async () => {
   const read = async path => JSON.parse(await readFile(resolve(root, path), 'utf8'));
-  const versions = await Promise.all(['package.json', 'plugins/100x/plugin.json', 'plugins/100x/.codex-plugin/plugin.json', 'plugins/100x/.claude-plugin/plugin.json'].map(async path => (await read(path)).version));
+  const versions = await Promise.all(['package.json', 'plugins/100x/plugin.json', 'plugins/100x/.codex-plugin/plugin.json', 'plugins/100x/.claude-plugin/plugin.json', 'plugins/100x/manifest.json'].map(async path => (await read(path)).version));
   assert.equal(new Set(versions).size, 1, versions.join(', '));
   const claude = (await read('plugins/100x/.claude-plugin/plugin.json')).mcpServers['100x'];
   const codex = (await read('plugins/100x/.mcp.json')).mcpServers['100x'];
   assert.deepEqual(claude.args, codex.args.map(arg => arg.replace('${PLUGIN_ROOT}', '${CLAUDE_PLUGIN_ROOT}')));
+  const desktop = (await read('plugins/100x/manifest.json')).server;
+  assert.deepEqual(desktop.mcp_config.args, codex.args.map(arg => arg.replace('${PLUGIN_ROOT}', '${__dirname}')));
+  assert.equal(desktop.mcp_config.args[0], '${__dirname}/' + desktop.entry_point);
   const marketplace = await read('.claude-plugin/marketplace.json');
   assert.equal(marketplace.name, (await read('.agents/plugins/marketplace.json')).name);
   assert.deepEqual(marketplace.plugins.map(item => [item.name, item.source]), [['100x', './plugins/100x']]);

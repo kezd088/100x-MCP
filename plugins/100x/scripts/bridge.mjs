@@ -30,7 +30,7 @@ async function handle(line) {
     }
     return output(id, {
       protocolVersion: ['2025-03-26', '2025-06-18', '2024-11-05'].includes(params?.protocolVersion) ? params.protocolVersion : '2025-03-26',
-      capabilities: { tools: {} }, serverInfo: { name: '100x', version: '0.3.5' },
+      capabilities: { tools: {} }, serverInfo: { name: '100x', version: '0.3.6' },
       instructions: '使用 100x 工具查型号、先报价并遵守用户预算。生成是异步任务，按 poll_after_ms 查询。令牌不进入对话。',
     });
   }

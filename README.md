@@ -1,12 +1,12 @@
-# 100x for Codex Desktop & Claude Code
+# 100x for Codex Desktop & Claude
 
 <p align="center">
   <img src="./assets/readme/100x-codex-hero.svg" width="100%" alt="100x for Codex Desktop - 官方插件与创作 SKILL 概览">
 </p>
 
-让 Codex 和 Claude Code 对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
+让 Codex、Claude Code 和 Claude 桌面端对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
 
-**版本**：v0.3.5 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
+**版本**：v0.3.6 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
 
 ---
 
@@ -19,6 +19,12 @@
 ```text
 请阅读 https://github.com/kezd088/100x-MCP/blob/main/INSTALL.md，按说明安装 100x MCP + SKILL 到本机 Codex，检查安装结果。不要在对话里索取或显示访问令牌。
 ```
+
+### Claude 桌面端
+
+下载扩展 [100x.mcpb](https://100xspeed.app/mcp/downloads/100x.mcpb)（也在 GitHub Releases），双击打开，在 Claude 弹出的安装窗口点「安装」。不用装 Node，Claude 自带运行环境。也可以在 Claude「设置 → 扩展」里选「安装扩展」再选这个文件。
+
+装好后在对话里发「连接 100x」，打开返回的授权页核对连接码并允许，之后直接说需求。更新：下载新版 `100x.mcpb` 再装一次。
 
 ### Claude Code
 
