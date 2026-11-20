@@ -62,10 +62,10 @@ export class DeviceConnection {
   async advance() {
     if(this.advancing) return this.advancing;
     this.advancing=(async()=>{
+      const p=this.pending;
       try {
-        if(!this.pending) return;
-        if(Date.parse(this.pending.expires_at)<Date.now()) { this.state={status:'expired',message:'连接已过期，请重新连接。'}; this.pending=null; await this.persist(); return; }
-        const p=this.pending;
+        if(!p) return;
+        if(Date.parse(p.expires_at)<Date.now()) { this.state={status:'expired',message:'连接已过期，请重新连接。'}; this.pending=null; await this.persist(); return; }
         if(!p.token) {
           const result=await this.call(p.url,'token',{body:{device_code:p.deviceCode}});
           if(this.pending!==p) return;
@@ -73,6 +73,7 @@ export class DeviceConnection {
           if(result.status==='pending') { this.state={status:'waiting'}; return; }
           if(result.status==='connected') {
             const saved=await readConnection(this.env,this.protection); await this.call(saved.url,'connection',{token:saved.token});
+            if(this.pending!==p) return;
             this.state={status:'connected'}; this.pending=null; await this.persist(); return;
           }
           if(result.status!=='approved' || typeof result.access_token!=='string') throw new ConnectionError('100X_PROTOCOL_ERROR','授权响应无效。');
@@ -83,6 +84,7 @@ export class DeviceConnection {
         await this.call(p.url,'ack',{body:{saved:true},token:p.token});
         this.state={status:'connected'}; this.pending=null; await this.persist();
       } catch(error) {
+        if(this.pending!==p) return;
         const code=error.code || '100X_SAVE_FAILED';
         if(['expired_token','access_denied','100X_AUTH_FAILED'].includes(code)) { this.pending=null; this.state={status:'expired',message:'授权已失效，请重新连接。'}; await this.persist(); }
         else if(code==='slow_down') this.delay=Math.min(15000,(this.delay || 3100)+3000);

@@ -142,3 +142,25 @@ test('待授权请求在轮询途中被换掉后，晚到的授权结果不写�
   clearTimeout(connection.timer);
   assert.deepEqual(saves, []);
 });
+
+test('旧授权轮询晚到的失效错误，不清掉用户刚发起的新授权', async () => {
+  const { env, options } = mac();
+  let release;
+  const connection = new DeviceConnection(env, {
+    protection: options, host: 'Codex', save: async () => { throw new Error('must not save'); },
+    fetch: async () => { await new Promise(resolve => { release = resolve; }); return Response.json({ code: 'expired_token' }, { status: 410 }); },
+  });
+  connection.loaded = true;
+  connection.persist = async () => {};
+  const expires_at = new Date(Date.now() + 60000).toISOString();
+  connection.pending = { url, deviceCode: 'c'.repeat(64), user_code: 'OLD0000000', expires_at };
+  const polling = connection.advance();
+  while (!release) await new Promise(resolve => setTimeout(resolve, 5));
+  const fresh = { url, deviceCode: 'd'.repeat(64), user_code: 'NEW0000000', expires_at };
+  connection.pending = fresh; connection.state = { status: 'waiting' };
+  release();
+  await polling;
+  clearTimeout(connection.timer);
+  assert.equal(connection.pending, fresh);
+  assert.equal(connection.publicState().status, 'waiting');
+});
