@@ -11,7 +11,7 @@ const skill = await readFile(new URL('../skills/100x-creative/SKILL.md', import.
 const instructions = skill.replace(/^---[\s\S]*?\n---\n/, '').trim() || undefined;
 const connectTool={name:'100x_connect',description:'连接本机 AI 客户端与 100x。自动用系统浏览器打开授权页（browser_opened），返回授权地址和核对码；接着调用 100x_connection_status 等用户允许。凭据自动安全保存，不在对话中传递令牌。',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:true}};
 const statusTool = {
-  name: '100x_connection_status', description: '查询 100x 授权进度及真实连接状态。授权进行中时最多等 25 秒，用户允许后立即返回 connected；仍是 waiting 就再调用。不生成、不扣积分、不输出访问令牌。',
+  name: '100x_connection_status', description: '查询 100x 授权进度及真实连接状态。授权进行中时最多等 25 秒，用户允许后立即返回 connected。只有 connected、denied、expired 是结果，返回其他状态（waiting、saving、save_error、offline）时插件仍在后台继续，再调用一次。不生成、不扣积分、不输出访问令牌。',
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
 };

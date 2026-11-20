@@ -35,7 +35,7 @@ export class DeviceConnection {
   }
   async load() {
     if(this.loaded) return; this.loaded=true;
-    try { const record=JSON.parse(await readFile(this.pendingPath(),'utf8')); const data=JSON.parse(await unprotect(record.cipher,this.protection)); if(data && data.deviceCode && new Date(data.expires_at).getTime()>Date.now()) { validateEndpoint(data.url); this.pending=data; } }
+    try { const record=JSON.parse(await readFile(this.pendingPath(),'utf8')); const data=JSON.parse(await unprotect(record.cipher,this.protection)); if(data && data.deviceCode && new Date(data.expires_at).getTime()>Date.now()) { validateEndpoint(data.url); this.pending=data; this.lastPoll=Date.now(); } }
     catch(error) { if(error.code!=='ENOENT') this.state={status:'unavailable',message:'上次连接未恢复，请重新连接。'}; }
   }
   async persist() {
