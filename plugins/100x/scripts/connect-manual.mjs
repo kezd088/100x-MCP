@@ -28,7 +28,7 @@ try {
     token = await ask('100x 访问令牌（隐藏输入）：', true);
   }
   await saveConnection({ url, token });
-  console.log('100x 凭据已在本机加密保存。回到 Codex 桌面端，在新任务中检查 100x 连接。');
+  console.log('100x 凭据已在本机加密保存。回到 Codex 或 Claude Code，在新任务中检查 100x 连接。');
 } catch {
   // 不输出异常原文：解析与请求错误可能带着凭据。
   console.error('100x 连接未保存。请检查当前系统账户、100x MCP 地址及访问令牌。');

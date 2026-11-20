@@ -1,7 +1,7 @@
 import { DeviceConnection } from './device-auth.mjs';
 import { ConnectionError } from './connection.mjs';
 import { execFile } from 'node:child_process';
-const connection=new DeviceConnection();
+const connection=new DeviceConnection(process.env,{host:'Codex'});
 try {
   const state=await connection.connect();
   console.log('100x · 请在网页核对连接码：'+state.user_code);

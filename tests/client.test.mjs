@@ -196,3 +196,40 @@ test('media download from current 100x endpoint cannot overwrite files', async (
     assert.equal(result.code, 1); assert.equal(await readFile(saved, 'utf8'), 'keep'); assert.match(result.stderr, /已存在/);
   } finally { server.closeAllConnections(); server.close(); }
 });
+
+test('stdio bridge reports the host app to 100x on every forwarded tool call', async () => {
+  const seen = [];
+  const { server, url } = await start(async (req, res) => {
+    let text = ''; for await (const c of req) text += c;
+    const body = JSON.parse(text); seen.push(body);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { content: [{ type: 'text', text: 'ok' }] } }));
+  });
+  const child = spawn(process.execPath, [resolve(plugin, 'scripts/bridge.mjs')], { cwd: folder, env: { ...process.env, HUNDREDX_URL: url, HUNDREDX_TOKEN: token }, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+  const pending = new Map();
+  createInterface({ input: child.stdout }).on('line', line => { const m = JSON.parse(line); pending.get(m.id)?.(m); });
+  const call = (id, method, params) => new Promise((res, rej) => {
+    const timer = setTimeout(() => rej(new Error('stdio timeout')), 5000);
+    pending.set(id, r => { clearTimeout(timer); res(r); });
+    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+  });
+  try {
+    await call(1, 'initialize', { protocolVersion: '2025-06-18', clientInfo: { name: 'claude-code', title: 'Claude Code', version: '2.1.328' } });
+    const reply = await call(2, 'tools/call', { name: '100x_get_balance', arguments: {} });
+    assert.equal(reply.result.content[0].text, 'ok');
+    assert.deepEqual(seen[0].params._meta, { 'io.modelcontextprotocol/clientInfo': { name: 'claude-code', version: '2.1.328' } });
+    assert.deepEqual(seen[0].params.arguments, {});
+  } finally { child.kill(); server.close(); }
+});
+
+test('Codex and Claude Code manifests ship the same version and the same stdio bridge', async () => {
+  const read = async path => JSON.parse(await readFile(resolve(root, path), 'utf8'));
+  const versions = await Promise.all(['package.json', 'plugins/100x/plugin.json', 'plugins/100x/.codex-plugin/plugin.json', 'plugins/100x/.claude-plugin/plugin.json'].map(async path => (await read(path)).version));
+  assert.equal(new Set(versions).size, 1, versions.join(', '));
+  const claude = (await read('plugins/100x/.claude-plugin/plugin.json')).mcpServers['100x'];
+  const codex = (await read('plugins/100x/.mcp.json')).mcpServers['100x'];
+  assert.deepEqual(claude.args, codex.args.map(arg => arg.replace('${PLUGIN_ROOT}', '${CLAUDE_PLUGIN_ROOT}')));
+  const marketplace = await read('.claude-plugin/marketplace.json');
+  assert.equal(marketplace.name, (await read('.agents/plugins/marketplace.json')).name);
+  assert.deepEqual(marketplace.plugins.map(item => [item.name, item.source]), [['100x', './plugins/100x']]);
+});

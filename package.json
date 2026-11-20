@@ -1,9 +1,9 @@
 {
   "name": "100x-codex",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "private": true,
   "type": "module",
-  "description": "100x MCP and SKILL client for Codex Desktop",
+  "description": "100x MCP and SKILL client for Codex Desktop and Claude Code",
   "engines": {
     "node": ">=22"
   },

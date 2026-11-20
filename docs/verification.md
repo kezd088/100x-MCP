@@ -1,5 +1,18 @@
 # 验证记录
 
+## 0.3.5 · Claude Code 插件
+
+新增：仓库根目录 `.claude-plugin/marketplace.json` 和 `plugins/100x/.claude-plugin/plugin.json`，Claude Code 用原生插件命令安装同一个插件目录。Claude Code 只展开 `${CLAUDE_PLUGIN_ROOT}`，不认 Codex 的 `${PLUGIN_ROOT}`，所以 Claude 清单里内联 `mcpServers`，内联后不再读 `.mcp.json`。桥接把 `initialize` 里的客户端名转给服务端（`_meta["io.modelcontextprotocol/clientInfo"]`），网页「来源 App」能认出 Claude Code 和 Codex；授权设备名也按宿主写，比如「Claude Code · macOS」。
+
+2026-11-20 在 Mac 上实际跑过：
+
+- `node --test tests/*.test.mjs`：29 项通过，4 项只在 Windows 或装了 PowerShell 时跑，跳过。新加的「转发客户端名」测试放到旧桥接上会挂。
+- Claude Code 2.1.328 用隔离的 `CLAUDE_CONFIG_DIR`：`claude plugin marketplace add <本地仓库>`、`claude plugin install 100x@100x` 成功，`claude mcp list` 只有一个 `plugin:100x:100x` 且 Connected。没加内联 `mcpServers` 前它读 `.mcp.json`，报 `CONNECTION_CLOSED`。
+- `claude --plugin-dir plugins/100x -p …`：列出 11 个 `mcp__plugin_100x_100x__100x_*` 工具和 `100x:100x-creative` skill；无凭据时 `100x_connection_status` 返回 `100X_NOT_CONNECTED`。
+- Claude Code 上报的 `clientInfo` 是 `{"name":"claude-code","title":"Claude Code"}`，100x 网页已有这个别名的图标。
+- 未验证：Claude Code 里走完真实网页授权和真实生成。
+
+
 ## 0.3.4 · Windows 受限语言模式下保存凭据
 
 问题：PowerShell 处在受限语言模式（AppLocker、WDAC）时，客户端起的 PowerShell 改控制台编码、用 `[Console]::In` 读输入、用 `Marshal` 解出明文、用 .NET 的 ACL 类型收紧权限，这几步都被拦。凭据存不了，就不回执给网站。DPAPI 加密本身用的就是 `ConvertFrom-SecureString`，密文格式这次不变。

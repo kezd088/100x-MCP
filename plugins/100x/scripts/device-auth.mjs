@@ -7,7 +7,7 @@ const SYSTEM_NAMES = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
 export class DeviceConnection {
   constructor(env=process.env, dependencies={}) {
     this.env=env; this.fetch=dependencies.fetch || fetch; this.save=dependencies.save || saveConnection;
-    this.protection=dependencies.protection || {};
+    this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP').slice(0,60);
     this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null;
   }
   get platform() { return this.protection.platform || process.platform; }
@@ -38,7 +38,7 @@ export class DeviceConnection {
       if(this.pending && Date.parse(this.pending.expires_at)>Date.now()) { this.schedule(); return this.publicState(); }
       const url=validateEndpoint(this.env.HUNDREDX_URL || 'https://100xspeed.app/api/mcp');
       const deviceCode=randomBytes(32).toString('hex');
-      const result=await this.call(url,'device',{body:{device_code:deviceCode,device_name:'Codex · '+(SYSTEM_NAMES[this.platform] || this.platform)}});
+      const result=await this.call(url,'device',{body:{device_code:deviceCode,device_name:this.host+' · '+(SYSTEM_NAMES[this.platform] || this.platform)}});
       const verification=new URL(result.verification_uri);
       const local=['127.0.0.1','localhost','[::1]'].includes(new URL(url).hostname);
       if((!local && verification.origin!==new URL(url).origin) || (local && !['127.0.0.1','localhost','[::1]'].includes(verification.hostname))) throw new ConnectionError('100X_PROTOCOL_ERROR','授权页面地址无效。');

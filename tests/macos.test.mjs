@@ -86,7 +86,7 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   const token = '100x_' + randomBytes(24).toString('hex');
   const requests = [];
   const connection = new DeviceConnection(env, {
-    protection: options,
+    protection: options, host: 'Claude Code',
     fetch: async (endpoint, init) => {
       const body = init.body ? JSON.parse(init.body) : null;
       requests.push({ path: new URL(endpoint).pathname, body });
@@ -97,7 +97,7 @@ test('macOS 设备名进授权请求，待授权数据与令牌分开存放', as
   });
   const state = await connection.connect();
   assert.equal(state.user_code, 'MAC1234567');
-  assert.equal(requests[0].body.device_name, 'Codex · macOS');
+  assert.equal(requests[0].body.device_name, 'Claude Code · macOS');
 
   await connection.advance();
   clearTimeout(connection.timer);
