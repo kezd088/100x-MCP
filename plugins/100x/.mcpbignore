@@ -1,0 +1,9 @@
+skills/
+.claude-plugin/
+.codex-plugin/
+.mcp.json
+mcp.json
+plugin.json
+assets/
+scripts/connect.mjs
+scripts/connect-manual.mjs

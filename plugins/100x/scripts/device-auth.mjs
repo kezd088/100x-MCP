@@ -12,7 +12,7 @@ export class DeviceConnection {
     this.protection=dependencies.protection || {}; this.host=String(dependencies.host || 'MCP');
     this.pending=null; this.flight=null; this.loaded=false; this.timer=null; this.state=null;
   }
-  deviceName() { const system=' · '+(SYSTEM_NAMES[this.platform] || this.platform); return fitUnits(this.host,64-system.length)+system; }
+  deviceName() { const system=' · '+(SYSTEM_NAMES[this.platform] || this.platform); return fitUnits(this.env.HUNDREDX_HOST || this.host,64-system.length)+system; }
   get platform() { return this.protection.platform || process.platform; }
   pendingPath() { return connectionPath(this.env,this.platform)+'.pending'; }
   async call(url,path,{body,token}={}) {

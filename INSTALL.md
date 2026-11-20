@@ -1,4 +1,4 @@
-# 安装 100x 到 Codex 桌面端或 Claude Code
+# 安装 100x 到 Codex 桌面端、Claude Code 或 Claude 桌面端
 
 本文用于用户将仓库交给 Codex 或 Claude Code 安装。Claude Code 看下面「Claude Code」一节，其余步骤是 Codex 的。只安装公开客户端插件和 SKILL，不部署服务器。
 
@@ -11,6 +11,12 @@
 5. 在新任务中调用 `100x_connect`，打开返回的 100x 授权页面，将连接码展示给用户核对。用户自行登录并点击允许，Agent 不代替用户授予账户权限。按返回间隔检查 `100x_connection_status`，只有 `connected` 才算完成。备选入口是安装器的 `-Connect`（Windows）或 `--connect`（macOS）。不要索取令牌到聊天。
 6. 提醒用户回到 Codex 桌面端新建任务，输入 `$100x:100x-creative 检查 100x 连接，列出可用型号和余额，不生成。` SKILL 和 MCP 工具在新任务中加载。此命令不扣生成积分。
 7. 首次生成先查型号、报价，并按用户已授权的预算提交；保存返回的 100x 产物，在对话中展示本地绝对路径的图片或视频。失败保留任务号，不能换新幂等编号自动重复付费。
+
+## Claude 桌面端
+
+Claude 桌面端的聊天窗口不读插件市场，装扩展包：下载 `https://100xspeed.app/mcp/downloads/100x.mcpb`，双击用 Claude 打开并点「安装」；没弹窗就在 「设置 → 桌面应用」→「扩展」旁的「管理」→「高级设置」→「安装扩展…」 选这个文件；团队版、企业版开了扩展允许列表的，安装和更新都由组织所有者在 「组织设置 → 连接器 → 桌面」 上传并加给团队，成员从组织目录安装。扩展用 Claude 自带的 Node，不需要本机装 Node。装好后在新对话发「连接 100x」，把授权链接和连接码给用户核对，用户允许后按返回间隔查 `100x_connection_status`，只有 `connected` 才算完成。凭据与 Codex、Claude Code 共用。
+
+打包（维护者）：`npm run pack:desktop` 生成 `dist/100x.mcpb`，传到 GitHub Release 和文档站 `mcp/downloads/100x.mcpb`。
 
 ## Claude Code
 
@@ -59,6 +65,6 @@ Linux 的加密凭据向导仍未提供：`install.sh` 可以装插件，但保�
 
 ## 状态与更新
 
-v0.3.5 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
+v0.3.6 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
 
 开发验证可使用 `./install.ps1 -Source <本地仓库绝对路径>` 或 `./install.sh --source <本地仓库绝对路径>`；这只应连接本机测试服务。不要把 localhost 地址作为其他用户的公网接入地址。

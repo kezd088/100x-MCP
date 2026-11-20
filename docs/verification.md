@@ -1,5 +1,15 @@
 # 验证记录
 
+## 0.3.6 · Claude 桌面端扩展
+
+新增：`plugins/100x/manifest.json`，用 `npm run pack:desktop`（`@anthropic-ai/mcpb` 2.1.2）把桥接打成 `100x.mcpb`，Claude 桌面端双击安装，用它自带的 Node 跑同一个 `scripts/bridge.mjs`。`.mcpbignore` 去掉 SKILL、Codex/Claude Code 清单和安装脚本，包里只有图标、清单和 5 个运行文件，23 KB。Claude 桌面端上报的 `clientInfo` 是 `{"name":"claude-ai","version":"0.1.0"}`，没有 `title`，所以扩展用环境变量 `HUNDREDX_HOST=Claude` 定设备名，授权页显示「Claude · macOS」，不显示 `claude-ai`。
+
+2026-11-20 在 Mac 上实际跑过：
+
+- `node --test tests/*.test.mjs`：38 项通过，4 项只在 Windows 或装了 PowerShell 时跑，跳过。新加：三份清单版本一致、桌面端入口和 Codex 指向同一个桥接；设备名按 `HUNDREDX_HOST` 起。
+- `mcpb validate` 通过；解包后在 `/` 目录、空 `HOME`、只有系统 PATH 的环境里用 Node 24（和 Claude 桌面端 2.42304 自带的 Electron Node 24.22 同一主版本）启动：Claude 桌面端的 `initialize`（协议 2025-11-25）回 2025-03-26，11 个工具，无凭据时 `100x_connection_status` 返回 `100X_NOT_CONNECTED`。
+- 未验证：在 Claude 桌面端里双击安装和真实授权。本机 Claude 桌面端没登录，Windows 没装 Claude 桌面端。
+
 ## 0.3.5 · Claude Code 插件
 
 新增：仓库根目录 `.claude-plugin/marketplace.json` 和 `plugins/100x/.claude-plugin/plugin.json`，Claude Code 用原生插件命令安装同一个插件目录。Claude Code 只展开 `${CLAUDE_PLUGIN_ROOT}`，不认 Codex 的 `${PLUGIN_ROOT}`，所以 Claude 清单里内联同名 `100x` 的 `mcpServers`，覆盖 `.mcp.json` 里那份。桥接把 `initialize` 里的客户端名转给服务端（`_meta["io.modelcontextprotocol/clientInfo"]`），网页「来源 App」能认出 Claude Code 和 Codex；授权设备名也按宿主写，比如「Claude Code · macOS」。
