@@ -22,7 +22,7 @@
 
 ### Claude 桌面端
 
-下载扩展 [100x.mcpb](https://100xspeed.app/mcp/downloads/100x.mcpb)（也在 GitHub Releases），双击打开，在 Claude 弹出的安装窗口点「安装」。不用装 Node，Claude 自带运行环境。也可以在 Claude「设置 → 扩展」里选「安装扩展」再选这个文件。
+下载扩展 [100x.mcpb](https://100xspeed.app/mcp/downloads/100x.mcpb)（也在 GitHub Releases），双击打开，在 Claude 弹出的安装窗口点「安装」。不用装 Node，Claude 自带运行环境。没弹窗就在 Claude 「设置 → 桌面应用」→「扩展」旁的「管理」→「高级设置」→「安装扩展…」，选这个文件。
 
 装好后在对话里发「连接 100x」，打开返回的授权页核对连接码并允许，之后直接说需求。更新：下载新版 `100x.mcpb` 再装一次。
 

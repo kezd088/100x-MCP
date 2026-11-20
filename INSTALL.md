@@ -14,7 +14,7 @@
 
 ## Claude 桌面端
 
-Claude 桌面端的聊天窗口不读插件市场，装扩展包：下载 `https://100xspeed.app/mcp/downloads/100x.mcpb`，双击用 Claude 打开并点「安装」，或在「设置 → 扩展」里选「安装扩展」。扩展用 Claude 自带的 Node，不需要本机装 Node。装好后在新对话发「连接 100x」，把授权链接和连接码给用户核对，用户允许后按返回间隔查 `100x_connection_status`，只有 `connected` 才算完成。凭据与 Codex、Claude Code 共用。
+Claude 桌面端的聊天窗口不读插件市场，装扩展包：下载 `https://100xspeed.app/mcp/downloads/100x.mcpb`，双击用 Claude 打开并点「安装」；没弹窗就在 「设置 → 桌面应用」→「扩展」旁的「管理」→「高级设置」→「安装扩展…」 选这个文件，团队版和企业版由管理员在同一处上传分发。扩展用 Claude 自带的 Node，不需要本机装 Node。装好后在新对话发「连接 100x」，把授权链接和连接码给用户核对，用户允许后按返回间隔查 `100x_connection_status`，只有 `connected` 才算完成。凭据与 Codex、Claude Code 共用。
 
 打包（维护者）：`npm run pack:desktop` 生成 `dist/100x.mcpb`，传到 GitHub Release 和文档站 `mcp/downloads/100x.mcpb`。
 
