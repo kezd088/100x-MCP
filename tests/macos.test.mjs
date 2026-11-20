@@ -196,3 +196,18 @@ test('旧轮询清理时写盘失败，本次重连照样拿到新授权码', as
   clearTimeout(connection.timer);
   assert.equal(state.user_code, 'NEW1234567');
 });
+
+test('重启后恢复的授权请求等满一个间隔再查，不撞服务端限流', async () => {
+  const { env, options } = mac();
+  const sent = [];
+  const fetch = async endpoint => { const path = new URL(endpoint).pathname; if (path.endsWith('/token')) { sent.push(Date.now()); return Response.json({ status: 'pending' }); } return Response.json({ user_code: 'NEW1234567', verification_uri: 'https://100xspeed.app/?connect_100x=NEW1234567', expires_at: new Date(Date.now() + 600000).toISOString() }); };
+  const before = new DeviceConnection(env, { protection: options, host: 'Claude', fetch });
+  before.status = async () => { const e = new Error('x'); e.code = '100X_NOT_CONNECTED'; throw e; };
+  await before.connect(); clearTimeout(before.timer);
+  const after = new DeviceConnection(env, { protection: options, host: 'Claude', fetch });
+  after.delay = 150;
+  const restarted = Date.now();
+  assert.equal((await after.status({ wait: 100 })).status, 'waiting');
+  clearTimeout(after.timer);
+  assert.ok(sent.every(at => at - restarted >= 140), String(sent.map(at => at - restarted)));
+});
