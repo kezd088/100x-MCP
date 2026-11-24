@@ -61,6 +61,7 @@ test('fresh stdio starts without credentials and exposes actionable connection s
     assert.equal(listed.length, 11);
     assert.ok(listed.some(tool => tool.name === '100x_push_storyboard'), 'the storyboard push tool is exposed');
     assert.ok(listed.some(tool => tool.name === '100x_report_production'), 'the production report tool is exposed');
+    assert.ok(listed.some(tool => tool.name === '100x_submit_batch'), 'the batch submit tool is exposed');
     assert.equal(listed.find(tool => tool.name === '100x_generate_video').inputSchema.required.includes('max_credits'), false, 'Omni, MiniMax and Seedance videos need no credit cap');
     const status = await call('tools/call', { name: '100x_connection_status', arguments: {} });
     assert.equal(status.result.structuredContent.error.code, '100X_NOT_CONNECTED');

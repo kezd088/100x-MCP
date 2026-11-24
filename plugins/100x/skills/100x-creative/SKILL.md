@@ -15,6 +15,8 @@ description: 用 100x MCP 在 Codex、Claude Code 或 Claude 桌面端中生成�
 
 本地文件上传：读取 [素材操作说明](references/files.md)，使用包内脚本。不要把完整 base64 塞进对话。
 
+一次要出多条（多张图、多段视频、几组提示词裂变）时，用 `100x_submit_batch` 整批提交，不要循环调用单条生成：items 每条和 `100x_quote` 的参数相同，服务端逐条报价后整批提交；`max_credits` 填整批合计上限。这一批会出现在用户 100x 网页的任务区，把返回的 `tasks_url` 给用户打开查看进度和结果；需要在对话里汇报时用每条的 `task_id` 调 `100x_get_task`。重试同一批复用原 `idempotency_key`。
+
 写好的分镜要放进 100x 生成台时，先上传参考图，再调用 `100x_push_storyboard`，原稿照传，不自行拆镜；返回的 `project_url` 给用户打开。重试同一份分镜复用原 `idempotency_key`。不在 100x 生成、而在本机或别的服务执行的生产任务，用户要在 100x 看到进度时，用 `100x_report_production` 回传状态和日志；结果只能是本连接上传的 `100x_asset_*`，不回传凭据和上游原文。
 
 错误处理：`100X_BUDGET_EXCEEDED` 不提交；`100X_QUOTE_CHANGED` 重新报价；`submission_unknown` 使用原报价和原请求编号重试；失败状态停止轮询，保留任务号。只为明确可重试的连接失败重试一次；仍失败就报告任务号和状态。正式失败后的再生成是新付费意图，沿用用户预算边界。
