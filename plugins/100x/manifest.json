@@ -3,7 +3,7 @@
   "manifest_version": "0.3",
   "name": "100x",
   "display_name": "100x",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "在 Claude 桌面端用 100x 生成图片与视频，先报价再提交，任务和素材统一管理。",
   "long_description": "装好后在对话里说「连接 100x」，打开返回的网页、核对连接码并允许，凭据自动保存在本机。之后直接说需求即可查型号、报价、生成图片和视频、查询任务。令牌不进入对话。",
   "author": { "name": "100x", "url": "https://100xspeed.app" },

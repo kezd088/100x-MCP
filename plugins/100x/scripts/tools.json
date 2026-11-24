@@ -393,5 +393,115 @@
       "idempotentHint": true,
       "openWorldHint": true
     }
+  },
+  {
+    "name": "100x_submit_batch",
+    "description": "一次提交一批图片或视频生成（最多 50 条），整批进 100x 任务区：用户在 100x 网页的任务区看进度和结果。items 每条的字段和 100x_quote 相同，服务端逐条报价后整批提交，不用先调报价。max_credits 是整批合计的积分上限：含 Omni、MiniMax、Seedance 以外的型号时必填，整批报价超出即整批不提交。某条报价失败时整批不提交，报错写明第几条。返回每条的 task_id，可用 100x_get_task 查询；tasks_url 是任务区链接。相同的一批重试用同一个 idempotency_key，不会重复生成。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "model": {
+                "type": "string",
+                "maxLength": 80
+              },
+              "prompt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12000
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "text",
+                  "reference",
+                  "first_frame",
+                  "first_last_frame"
+                ],
+                "default": "text"
+              },
+              "aspect_ratio": {
+                "type": "string",
+                "pattern": "^(?:\\d{1,2}:\\d{1,2}|adaptive)$"
+              },
+              "resolution": {
+                "type": "string",
+                "pattern": "^\\d{1,4}(?:\\.5)?[PpKk]$"
+              },
+              "duration_seconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 120
+              },
+              "quality": {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "max",
+                  "xhigh"
+                ]
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^100x_[a-z]+_[a-f0-9]{32}$"
+                },
+                "maxItems": 64,
+                "default": []
+              },
+              "line": {
+                "type": "string",
+                "enum": [
+                  "standard",
+                  "pool",
+                  "economy",
+                  "alternate"
+                ]
+              }
+            },
+            "required": [
+              "model",
+              "prompt"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "idempotency_key": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,120}$"
+        },
+        "max_credits": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "required": [
+        "items",
+        "idempotency_key"
+      ],
+      "additionalProperties": false,
+      "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": true
+    }
   }
 ]
