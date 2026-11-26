@@ -32,7 +32,7 @@ async function handle(line) {
     }
     return output(id, {
       protocolVersion: ['2025-03-26', '2025-06-18', '2024-11-05'].includes(params?.protocolVersion) ? params.protocolVersion : '2025-03-26',
-      capabilities: { tools: {} }, serverInfo: { name: '100x', version: '0.3.8' },
+      capabilities: { tools: {} }, serverInfo: { name: '100x', version: '0.3.9' },
       instructions,
     });
   }
