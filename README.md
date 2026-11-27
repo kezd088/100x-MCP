@@ -4,9 +4,9 @@
   <img src="./assets/readme/100x-codex-hero.svg" width="100%" alt="100x for Codex Desktop - 官方插件与创作 SKILL 概览">
 </p>
 
-让 Codex、Claude Code 和 Claude 桌面端对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
+让 Codex、Claude Code、Claude 桌面端和 Antigravity 对话接入 100x 图片与视频生成。登录 100x、核对连接码、确认后即可创作。账户授权与设备管理就在「充值中心」下方的「MCP / SKILL」。
 
-**版本**：v0.3.9 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
+**版本**：v0.3.10 · **Marketplace**：`100x` · **Plugin**：`100x` · **SKILL**：`100x:100x-creative` · **官网**：[100xspeed.app/mcp](https://100xspeed.app/mcp/)
 
 ---
 
@@ -36,6 +36,16 @@ claude plugin install 100x@100x
 ```
 
 装好后新开一个 Claude Code 会话（已开的会话运行 `/reload-plugins`），发送「连接 100x」，打开返回的授权页核对连接码并允许。之后用 `/100x:100x-creative` 或直接说需求。更新：`claude plugin marketplace update 100x` 后 `claude plugin update 100x@100x`。
+
+### Antigravity
+
+在终端运行一条命令（Antigravity 桌面端和 `agy` 命令行共用 `~/.gemini/config/plugins/`）：
+
+```bash
+agy plugin install https://github.com/kezd088/100x-MCP/tree/main/plugins/100x
+```
+
+装好后在 Antigravity 新开一个对话，发送「连接 100x」，打开返回的授权页核对连接码并允许。需要本机 Node.js 22+。更新：再运行一次同一条命令；卸载：`agy plugin uninstall 100x`。
 
 ### 备选：一键脚本安装（Codex）
 
