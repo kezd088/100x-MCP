@@ -1,6 +1,6 @@
-# 安装 100x 到 Codex 桌面端、Claude Code 或 Claude 桌面端
+# 安装 100x 到 Codex 桌面端、Claude Code、Claude 桌面端或 Antigravity
 
-本文用于用户将仓库交给 Codex 或 Claude Code 安装。Claude Code 看下面「Claude Code」一节，其余步骤是 Codex 的。只安装公开客户端插件和 SKILL，不部署服务器。
+本文用于用户将仓库交给 Codex 或 Claude Code 安装。Claude Code 看下面「Claude Code」一节，Antigravity 看「Antigravity」一节，其余步骤是 Codex 的。只安装公开客户端插件和 SKILL，不部署服务器。
 
 ## 按顺序执行
 
@@ -27,6 +27,15 @@ Claude 桌面端的聊天窗口不读插件市场，装扩展包：下载 `https
 5. 检查连接用 `/100x:100x-creative 检查 100x 连接，列出可用型号和余额，不生成。`，不扣生成积分。
 
 凭据与 Codex 共用：同一台电脑已在 Codex 连过 100x，Claude Code 直接可用，不用再连。卸载：`claude plugin uninstall 100x@100x`。
+
+## Antigravity
+
+1. 检查 `node --version`（22+）和 `agy plugin --help`。缺少依赖时说明缺项，不自动全局安装。
+2. 运行 `agy plugin install https://github.com/kezd088/100x-MCP/tree/main/plugins/100x`。它把插件目录复制到 `~/.gemini/config/plugins/100x`，Antigravity 桌面端和 `agy` 命令行共用；不改其他插件、MCP 或模型配置。
+3. 运行 `agy plugin list`，`100x` 必须是 enabled，且列出 1 个 skill、1 个 MCP server。
+4. 提醒用户在 Antigravity 新开对话，发送「连接 100x」：调用 `100x_connect`，把返回的授权链接和连接码给用户核对，用户自行登录并允许，按返回间隔查 `100x_connection_status`，只有 `connected` 才算完成。不要索取令牌到聊天。
+
+Antigravity 读插件里的 `mcp_config.json`，其中 `HUNDREDX_HOST=Antigravity`，授权页设备名显示「Antigravity · macOS」。凭据与 Codex、Claude 共用。更新：再运行一次第 2 步；卸载：`agy plugin uninstall 100x`。
 
 ## 一条安装命令（Codex）
 
@@ -65,6 +74,6 @@ Linux 的加密凭据向导仍未提供：`install.sh` 可以装插件，但保�
 
 ## 状态与更新
 
-v0.3.9 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
+v0.3.10 默认连接 `https://100xspeed.app/api/mcp`，通过 100x 网页授权当前设备。安装不赠送积分。生产模型、规格与费用以 100x 实时目录及报价为准。更新可运行 `codex plugin marketplace upgrade 100x` 后重新执行安装器。卸载执行 `codex plugin remove 100x@100x`；加密凭据不会随之删除，需要清除时由用户自行管理：Windows 删 `%LOCALAPPDATA%/100x/connection.json` 及其备份，macOS 删 `~/Library/Application Support/100x/connection.json` 并在「钥匙串访问」中删除服务名 `100x-codex` 的条目。
 
 开发验证可使用 `./install.ps1 -Source <本地仓库绝对路径>` 或 `./install.sh --source <本地仓库绝对路径>`；这只应连接本机测试服务。不要把 localhost 地址作为其他用户的公网接入地址。

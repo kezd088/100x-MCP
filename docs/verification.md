@@ -1,5 +1,15 @@
 # 验证记录
 
+## 0.3.10 · Antigravity 插件
+
+新增：`plugins/100x/mcp_config.json`。Antigravity 2.35 的 `agy plugin install` 能装 GitHub 子目录，但只从 `mcp_config.json` 读 MCP；`mcp.json` 要等它的 `enable-agent-plugins-spec` 开关打开才读。新文件用 Antigravity 展开的 `${PLUGIN_ROOT}` 指向同一个 `scripts/bridge.mjs`，并设 `HUNDREDX_HOST=Antigravity` 定设备名。扩展包不带它。
+
+2026-11-27 在 Mac 上实际跑过（Antigravity 2.35.2）：
+
+- 改前：`agy plugin install https://github.com/kezd088/100x-MCP/tree/main/plugins/100x` 只装上 1 个 skill，`agy plugin validate plugins/100x` 提示没有 `mcp_config.json` 就没有 MCP。
+- 改后：`agy plugin install <本分支>/plugins/100x` 报 1 个 skill、1 个 MCP server；`agy plugin list` 显示 `100x (enabled, 0.3.10)`。按 `mcp_config.json` 启动安装目录里的桥接，用 `clientInfo: antigravity` 握手，回 11 个工具。
+- 未验证：在 Antigravity 对话里真实授权和生成。本机 `agy` 没登录谷歌账号，桌面端没跑对话。
+
 ## 0.3.7 · 连接和 Codex 一样顺
 
 改动：

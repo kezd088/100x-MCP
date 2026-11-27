@@ -6,3 +6,4 @@ plugin.json
 assets/
 scripts/connect.mjs
 scripts/connect-manual.mjs
+mcp_config.json
